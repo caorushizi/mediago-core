@@ -1,6 +1,13 @@
 package utils
 
-import "os"
+import (
+	"os"
+	"regexp"
+)
+
+var (
+	urlReg = regexp.MustCompile("^https?://")
+)
 
 func CheckDirAndAccess(pathString string) (err error) {
 	// 检查下载路径是否存在
@@ -11,4 +18,8 @@ func CheckDirAndAccess(pathString string) (err error) {
 	}
 	// fixme： 检查时候有权限写入
 	return
+}
+
+func IsUrl(str string) bool {
+	return urlReg.MatchString(str)
 }

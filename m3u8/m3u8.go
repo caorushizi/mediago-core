@@ -3,6 +3,7 @@ package m3u8
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"mediago/utils"
 	"net/url"
@@ -13,7 +14,6 @@ import (
 
 type ExtM3u8 struct {
 	Name     string
-	Content  string
 	Url      *url.URL
 	Segments []url.URL
 }
@@ -25,9 +25,13 @@ func New(name string, urlString string) (playlist ExtM3u8, err error) {
 		return
 	}
 
+	return
+}
+
+func (m3u *ExtM3u8) Parse() (err error) {
 	// 开始处理 http 请求
 	var repReader io.ReadCloser
-	if repReader, err = utils.HttpClient(urlString); err != nil {
+	if repReader, err = utils.HttpClient(m3u.Url.String()); err != nil {
 		return
 	}
 	defer repReader.Close()
@@ -56,38 +60,57 @@ func New(name string, urlString string) (playlist ExtM3u8, err error) {
 		text := fileScanner.Text()
 		switch {
 		case extInfReg.MatchString(text):
-			playlist.Content = playlist.Content + text + "\n"
 		case strings.HasPrefix(text, "#EXT"):
-			playlist.Content = playlist.Content + text + "\n"
 		case commentsReg.MatchString(text):
 			// 这一行是注释直接跳过
 		default:
 			// 拼接与 url
-			tempUrl := *playlist.Url
-			if path.IsAbs(text) {
-				tempUrl.Path = text
-			} else {
-				tempBaseUrl := path.Dir(tempUrl.Path)
-				tempUrl.Path = path.Join(tempBaseUrl, text)
+			var segmentUrl url.URL
+
+			if segmentUrl, err = m3u.handleUrlParse(text); err != nil {
+				err = fmt.Errorf("解析url片段出错：%v", err)
+				continue
 			}
-
-			localContent := path.Join(playlist.Name, path.Base(tempUrl.Path))
-			playlist.Content = playlist.Content + localContent + "\n"
-
-			segments = append(segments, tempUrl)
+			segments = append(segments, segmentUrl)
 		}
 	}
 
-	playlist.Segments = segments
+	m3u.Segments = segments
 	return
 }
 
-func (m3u *ExtM3u8) Parse() {
-
-}
 func parseTag() {
 
 }
+
 func parseAttr() {
 
+}
+
+func (m3u *ExtM3u8) handleUrlParse(segmentText string) (segmentUrl url.URL, err error) {
+	var (
+		pSegmentUrl *url.URL
+		tempBaseUrl string
+	)
+
+	// 如果 m3u8 列表中已经是完整的 url
+	if utils.IsUrl(segmentText) {
+		// 解析 url
+		if pSegmentUrl, err = url.Parse(segmentText); err != nil {
+			return
+		}
+		return *pSegmentUrl, nil
+	}
+
+	// 不是完整的 url
+	segmentUrl = *m3u.Url
+
+	if path.IsAbs(segmentText) {
+		segmentUrl.Path = segmentText
+	} else {
+		tempBaseUrl = path.Dir(segmentUrl.Path)
+		segmentUrl.Path = path.Join(tempBaseUrl, segmentText)
+	}
+
+	return
 }

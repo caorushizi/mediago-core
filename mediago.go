@@ -1,7 +1,6 @@
 package main
 
 import (
-	"C"
 	"flag"
 	"fmt"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"mediago/utils"
 )
 
-//export Start
 func Start(nameString, pathString, urlString string) {
 	var err error
 
@@ -22,9 +20,9 @@ func Start(nameString, pathString, urlString string) {
 	}
 
 	var (
-		sc           scheduler.Scheduler
-		playlist     m3u8.ExtM3u8
-		playlistFile *os.File
+		sc       scheduler.Scheduler
+		playlist m3u8.ExtM3u8
+		//playlistFile *os.File
 	)
 	// 开始初始化下载器
 	if sc, err = scheduler.New(5); err != nil {
@@ -35,14 +33,18 @@ func Start(nameString, pathString, urlString string) {
 		panic(err)
 	}
 
-	pName := fmt.Sprintf("%s%s", nameString, path.Ext(playlist.Url.Path))
-	playlistName := path.Join(pathString, pName)
-	if playlistFile, err = os.Create(playlistName); err != nil {
+	if err = playlist.Parse(); err != nil {
 		panic(err)
 	}
-	if _, err = playlistFile.Write([]byte(playlist.Content)); err != nil {
-		panic(err)
-	}
+
+	//pName := fmt.Sprintf("%s%s", nameString, path.Ext(playlist.Url.Path))
+	//playlistName := path.Join(pathString, pName)
+	//if playlistFile, err = os.Create(playlistName); err != nil {
+	//	panic(err)
+	//}
+	//if _, err = playlistFile.Write([]byte(playlist.Content)); err != nil {
+	//	panic(err)
+	//}
 
 	// 创建视频文件夹
 	baseMediaPath := path.Join(pathString, nameString)
@@ -52,13 +54,15 @@ func Start(nameString, pathString, urlString string) {
 
 	// 分发的下载线程
 	go func() {
-		for _, segmentUrl := range playlist.Segments {
+		for index, segmentUrl := range playlist.Segments {
 			sc.Chs <- 1 // 限制线程数 （每次下载缓存加1， 直到加满阻塞）
 			sc.Add(1)
 
-			filePath := path.Join(baseMediaPath, path.Base(segmentUrl.Path))
+			filename := fmt.Sprintf("%04d.ts", index)
+			filePath := path.Join(baseMediaPath, filename)
 			go func(localPath string, urlString string) {
 				sc.Work(func() (err error) {
+					// 处理下载文件路径
 					if err = downloader.StartDownload(filePath, urlString); err != nil {
 						return
 					}

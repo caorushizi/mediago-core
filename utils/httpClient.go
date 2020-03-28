@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/tls"
 	"io"
 	"net/http"
 )
@@ -11,10 +12,15 @@ func HttpClient(url string) (repReader io.ReadCloser, err error) {
 		client *http.Client
 		req    *http.Request
 		resp   *http.Response
+		tr     *http.Transport
 	)
 
+	tr = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
 	// 创建 http client
-	client = &http.Client{}
+	client = &http.Client{Transport: tr}
 	if req, err = http.NewRequest("GET", url, nil); err != nil {
 		return
 	}
