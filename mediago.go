@@ -20,12 +20,12 @@ func Start(nameString, pathString, urlString string) {
 	}
 
 	var (
-		sc       scheduler.Scheduler
-		playlist m3u8.ExtM3u8
-		//playlistFile *os.File
+		sc           scheduler.Scheduler
+		playlist     m3u8.ExtM3u8
+		playlistFile *os.File
 	)
 	// 开始初始化下载器
-	if sc, err = scheduler.New(5); err != nil {
+	if sc, err = scheduler.New(15); err != nil {
 		panic(err)
 	}
 	// 开始初始化解析器
@@ -37,18 +37,30 @@ func Start(nameString, pathString, urlString string) {
 		panic(err)
 	}
 
-	//pName := fmt.Sprintf("%s%s", nameString, path.Ext(playlist.Url.Path))
-	//playlistName := path.Join(pathString, pName)
-	//if playlistFile, err = os.Create(playlistName); err != nil {
-	//	panic(err)
-	//}
-	//if _, err = playlistFile.Write([]byte(playlist.Content)); err != nil {
-	//	panic(err)
-	//}
-
 	// 创建视频文件夹
 	baseMediaPath := path.Join(pathString, nameString)
 	if err = os.MkdirAll(baseMediaPath, os.ModePerm); err != nil {
+		panic(err)
+	}
+
+	// 生成列表文件
+	fileList := path.Join(pathString, nameString, "fileList.txt")
+	if playlistFile, err = os.Create(fileList); err != nil {
+		panic(err)
+	}
+
+	content := ""
+	for index := range playlist.Segments {
+		filename := fmt.Sprintf("%04d.ts", index)
+		segmentItem := fmt.Sprintf("file 'segments/%s'\n", filename)
+		content += segmentItem
+	}
+	if _, err = playlistFile.WriteString(content); err != nil {
+		panic(err)
+	}
+
+	baseSegmentPath := path.Join(baseMediaPath, "segments")
+	if err = os.MkdirAll(baseSegmentPath, os.ModePerm); err != nil {
 		panic(err)
 	}
 
@@ -59,7 +71,8 @@ func Start(nameString, pathString, urlString string) {
 			sc.Add(1)
 
 			filename := fmt.Sprintf("%04d.ts", index)
-			filePath := path.Join(baseMediaPath, filename)
+			filePath := path.Join(baseSegmentPath, filename)
+
 			go func(localPath string, urlString string) {
 				sc.Work(func() (err error) {
 					// 处理下载文件路径
@@ -80,6 +93,9 @@ func Start(nameString, pathString, urlString string) {
 		fmt.Printf("总共%d个，已经下载%d个~\n", len(playlist.Segments), sc.Success)
 	}
 
+	outFile := path.Join(pathString, fmt.Sprintf("%s.mp4", nameString))
+	utils.OutputMp4(fileList, outFile)
+	fmt.Println("完成下载")
 }
 
 func main() {
