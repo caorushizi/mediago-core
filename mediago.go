@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path"
 
@@ -25,14 +26,17 @@ func Start(nameString, pathString, urlString string) {
 		playlistFile *os.File
 	)
 	// 开始初始化下载器
+	log.Println("初始化下载器。")
 	if sc, err = scheduler.New(15); err != nil {
 		panic(err)
 	}
 	// 开始初始化解析器
+	log.Println("初始化解析器。")
 	if playlist, err = m3u8.New(nameString, urlString); err != nil {
 		panic(err)
 	}
 
+	log.Println("开始解析 m3u8 文件。")
 	if err = playlist.Parse(); err != nil {
 		panic(err)
 	}

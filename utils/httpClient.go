@@ -3,10 +3,12 @@ package utils
 import (
 	"crypto/tls"
 	"io"
+	"log"
 	"net/http"
 )
 
 func HttpClient(url string) (repReader io.ReadCloser, err error) {
+	log.Println("开始下载 ", url)
 	// 初始化变量
 	var (
 		client *http.Client

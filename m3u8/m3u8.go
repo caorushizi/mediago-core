@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mediago/utils"
 	"net/url"
 	"path"
@@ -70,6 +71,7 @@ func parse(part *ExtM3u8) (err error) {
 	fileScanner = bufio.NewScanner(repReader)
 
 	// 解析第一行必须是 `#EXTM3U`
+	log.Println("开始扫描 m3u8 文件。")
 	fileScanner.Scan()
 	fileLine = fileScanner.Text()
 	if fileLine != "#EXTM3U" {
@@ -105,6 +107,7 @@ func parse(part *ExtM3u8) (err error) {
 			}
 
 			if part.IsMaster {
+				log.Println("发现 master 列表。")
 				index++
 				// 是主列表
 				var (
@@ -115,6 +118,7 @@ func parse(part *ExtM3u8) (err error) {
 					return
 				}
 				part.Parts = append(part.Parts, newPart)
+				log.Println("开始解析 playlist 列表。")
 				if err = parse(newPart); err != nil {
 					return
 				}
