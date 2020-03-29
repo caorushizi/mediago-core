@@ -4,13 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"path"
-
 	"mediago/downloader"
 	"mediago/m3u8"
 	"mediago/scheduler"
 	"mediago/utils"
+	"os"
+	"path"
 )
 
 func Start(nameString, pathString, urlString string) {
@@ -21,9 +20,8 @@ func Start(nameString, pathString, urlString string) {
 	}
 
 	var (
-		sc           scheduler.Scheduler
-		playlist     *m3u8.ExtM3u8
-		playlistFile *os.File
+		sc       scheduler.Scheduler
+		playlist *m3u8.ExtM3u8
 	)
 	// 开始初始化下载器
 	log.Println("初始化下载器。")
@@ -42,16 +40,14 @@ func Start(nameString, pathString, urlString string) {
 	}
 
 	var (
-		baseMediaPath   string // 分片文件文件夹下载路径
-		baseName        string // 分片文件目录名称
-		baseSegmentPath string // 分片文件下载具体路径 =  baseMediaPath + baseName
-		fileListPath    string // 分片文件检索文件 = baseMediaPath + "filelist.txt"
-		fileListContent string // 分片文件检索文件内容
-		currentPart     *m3u8.ExtM3u8
+		baseMediaDir   string // 分片文件文件夹下载路径
+		segmentDirName string // 分片文件目录名称
+		segmentDir     string // 分片文件下载具体路径 =  baseMediaDir + segmentDirName
+		currentPart    *m3u8.ExtM3u8
 	)
 	// 创建视频集合文件夹
-	baseMediaPath = path.Join(pathString, nameString)
-	if err = os.MkdirAll(baseMediaPath, os.ModePerm); err != nil {
+	baseMediaDir = path.Join(pathString, nameString)
+	if err = os.MkdirAll(baseMediaDir, os.ModePerm); err != nil {
 		panic(err)
 	}
 
@@ -59,20 +55,14 @@ func Start(nameString, pathString, urlString string) {
 	if len(playlist.Parts) > 0 {
 		// fixme: 指定下载通道
 		currentPart = playlist.Parts[0]
-		baseName = playlist.Parts[0].Name
+		segmentDirName = playlist.Parts[0].Name
 	} else {
 		currentPart = playlist
-		baseName = "part_1"
+		segmentDirName = "part_1"
 	}
 
-	// 生成列表文件
-	fileListPath = path.Join(baseMediaPath, "filelist.txt")
-	if playlistFile, err = os.Create(fileListPath); err != nil {
-		panic(err)
-	}
-
-	baseSegmentPath = path.Join(baseMediaPath, baseName)
-	if err = os.MkdirAll(baseSegmentPath, os.ModePerm); err != nil {
+	segmentDir = path.Join(baseMediaDir, segmentDirName)
+	if err = os.MkdirAll(segmentDir, os.ModePerm); err != nil {
 		panic(err)
 	}
 
@@ -83,11 +73,7 @@ func Start(nameString, pathString, urlString string) {
 			sc.Add(1)
 
 			filename := fmt.Sprintf("%04d.ts", index)
-			filePath := path.Join(baseSegmentPath, filename)
-
-			// 输出文件列表
-			segmentItem := fmt.Sprintf("file '%s/%s'\n", baseName, filename)
-			fileListContent += segmentItem
+			filePath := path.Join(segmentDir, filename)
 
 			go func(localPath string, urlString string) {
 				if err = sc.Work(func() (err error) {
@@ -112,13 +98,8 @@ func Start(nameString, pathString, urlString string) {
 		fmt.Printf("总共%d个，已经下载%d个~\n", len(currentPart.Segments), sc.Success)
 	}
 
-	// 输出合并文件列表
-	if _, err = playlistFile.WriteString(fileListContent); err != nil {
-		panic(err)
-	}
-
 	outFile := path.Join(pathString, fmt.Sprintf("%s.mp4", nameString))
-	if err = utils.OutputMp4(fileListPath, outFile); err != nil {
+	if err = utils.ConcatVideo(segmentDir, outFile); err != nil {
 		log.Println("合并文件出错：", err)
 	}
 
