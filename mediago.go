@@ -46,6 +46,7 @@ func Start(nameString, pathString, urlString string) {
 		baseName        string // 分片文件目录名称
 		baseSegmentPath string // 分片文件下载具体路径 =  baseMediaPath + baseName
 		fileListPath    string // 分片文件检索文件 = baseMediaPath + "filelist.txt"
+		fileListContent string // 分片文件检索文件内容
 		currentPart     *m3u8.ExtM3u8
 	)
 	// 创建视频集合文件夹
@@ -70,16 +71,6 @@ func Start(nameString, pathString, urlString string) {
 		panic(err)
 	}
 
-	content := ""
-	for index := range currentPart.Segments {
-		filename := fmt.Sprintf("%04d.ts", index)
-		segmentItem := fmt.Sprintf("file '%s/%s'\n", baseName, filename)
-		content += segmentItem
-	}
-	if _, err = playlistFile.WriteString(content); err != nil {
-		panic(err)
-	}
-
 	baseSegmentPath = path.Join(baseMediaPath, baseName)
 	if err = os.MkdirAll(baseSegmentPath, os.ModePerm); err != nil {
 		panic(err)
@@ -94,6 +85,10 @@ func Start(nameString, pathString, urlString string) {
 			filename := fmt.Sprintf("%04d.ts", index)
 			filePath := path.Join(baseSegmentPath, filename)
 
+			// 输出文件列表
+			segmentItem := fmt.Sprintf("file '%s/%s'\n", baseName, filename)
+			fileListContent += segmentItem
+
 			go func(localPath string, urlString string) {
 				if err = sc.Work(func() (err error) {
 					// 处理下载文件路径
@@ -102,6 +97,7 @@ func Start(nameString, pathString, urlString string) {
 					}
 					return
 				}); err != nil {
+					// 出现错误 输出错误
 					log.Println("下载时出错：", err)
 				}
 			}(pathString, segmentUrl.Url.String())
@@ -114,6 +110,11 @@ func Start(nameString, pathString, urlString string) {
 	for range sc.Ans {
 		sc.Success++
 		fmt.Printf("总共%d个，已经下载%d个~\n", len(currentPart.Segments), sc.Success)
+	}
+
+	// 输出合并文件列表
+	if _, err = playlistFile.WriteString(fileListContent); err != nil {
+		panic(err)
 	}
 
 	outFile := path.Join(pathString, fmt.Sprintf("%s.mp4", nameString))

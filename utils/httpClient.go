@@ -27,7 +27,7 @@ func HttpClient(url string) (repReader io.ReadCloser, err error) {
 	// 创建 http client
 	client = &http.Client{
 		Transport: transport,
-		Timeout:   5 * time.Second,
+		Timeout:   60 * time.Second,
 	}
 	if req, err = http.NewRequest("GET", url, nil); err != nil {
 		return

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -28,10 +29,11 @@ func IsUrl(str string) bool {
 func OutputMp4(filesListPath string, outFile string) (err error) {
 	var cmd *exec.Cmd
 
-	cmd = exec.Command("ffmpeg", "-f", "-safe", "0", "concat", "-i", filesListPath,
-		"-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", outFile)
+	cmd = exec.Command("ffmpeg", "-f", "concat", "-i", filesListPath,
+		"-acodec", "copy", "-vcodec", "copy", outFile)
 
 	if _, err = cmd.CombinedOutput(); err != nil {
+		fmt.Print(cmd.Stderr)
 		return
 	}
 	return
