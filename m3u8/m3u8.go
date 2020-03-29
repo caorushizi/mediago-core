@@ -9,17 +9,27 @@ import (
 	"net/url"
 	"path"
 	"regexp"
-	"strings"
+	"time"
 )
 
-type ExtM3u8 struct {
-	Name     string
-	Url      *url.URL
-	Segments []url.URL
+type Segment struct {
+	Duration time.Duration
+	Url      url.URL
 }
 
-func New(name string, urlString string) (playlist ExtM3u8, err error) {
-	playlist.Name = name
+type ExtM3u8 struct {
+	IsMaster   bool
+	Name       string
+	ProgramId  int
+	BandWidth  int
+	Resolution int
+	Url        *url.URL
+	Parts      []*ExtM3u8
+	Segments   []Segment
+}
+
+func New(name string, urlString string) (playlist *ExtM3u8, err error) {
+	playlist = &ExtM3u8{Name: name}
 	// 检查 url 是否正确
 	if playlist.Url, err = url.Parse(urlString); err != nil {
 		return
@@ -29,9 +39,25 @@ func New(name string, urlString string) (playlist ExtM3u8, err error) {
 }
 
 func (m3u *ExtM3u8) Parse() (err error) {
+	// 检查可用性
+	if m3u.Url == nil {
+		return errors.New("没有初始化 Url ~")
+	}
+	if m3u.Name == "" {
+		return errors.New("没有初始化 Name ~")
+	}
+
+	if err = parse(m3u); err != nil {
+		return
+	}
+
+	return
+}
+
+func parse(part *ExtM3u8) (err error) {
 	// 开始处理 http 请求
 	var repReader io.ReadCloser
-	if repReader, err = utils.HttpClient(m3u.Url.String()); err != nil {
+	if repReader, err = utils.HttpClient(part.Url.String()); err != nil {
 		return
 	}
 	defer repReader.Close()
@@ -39,48 +65,70 @@ func (m3u *ExtM3u8) Parse() (err error) {
 	// 文件扫描
 	var (
 		fileScanner *bufio.Scanner
-		segments    []url.URL
+		fileLine    string
 	)
 	fileScanner = bufio.NewScanner(repReader)
 
 	// 解析第一行必须是 `#EXTM3U`
 	fileScanner.Scan()
-	text := fileScanner.Text()
-	if text != "#EXTM3U" {
+	fileLine = fileScanner.Text()
+	if fileLine != "#EXTM3U" {
 		err = errors.New("不是一个 m3u8 文件")
 		return
 	}
 
 	var (
-		extInfReg   = regexp.MustCompile("^EXTINF")
-		commentsReg = regexp.MustCompile("^#[^EXT]")
+		extInfReg     = regexp.MustCompile("^#EXTINF")
+		extXStreamInf = regexp.MustCompile("^#EXT-X-STREAM-INF")
+		commentsReg   = regexp.MustCompile("^#[^EXT]")
 	)
 
+	// 开始扫描 m3u8 文件
+	var index int
 	for fileScanner.Scan() {
-		text := fileScanner.Text()
+		fileLine = fileScanner.Text()
 		switch {
-		case extInfReg.MatchString(text):
-		case strings.HasPrefix(text, "#EXT"):
-		case commentsReg.MatchString(text):
-			// 这一行是注释直接跳过
+		// 注释直接跳过
+		case commentsReg.MatchString(fileLine):
+		case extXStreamInf.MatchString(fileLine):
+			part.IsMaster = true
+		case extInfReg.MatchString(fileLine):
 		default:
-			// 拼接与 url
-			var segmentUrl url.URL
+			// m3u8 文件属性列表已经扫描完成，下面的文字都是包含片段信息的文本
+			// 或者包含片段内容，一般是 url 的绝对路径或者相对路径
 
-			if segmentUrl, err = m3u.handleUrlParse(text); err != nil {
+			// 首先解析地址，然后判断类型
+			var segmentUrl url.URL
+			if segmentUrl, err = part.handleUrlParse(fileLine); err != nil {
 				err = fmt.Errorf("解析url片段出错：%v", err)
 				continue
 			}
-			segments = append(segments, segmentUrl)
+
+			if part.IsMaster {
+				index++
+				// 是主列表
+				var (
+					newPart *ExtM3u8
+				)
+				name := fmt.Sprintf("part_%d", index)
+				if newPart, err = New(name, segmentUrl.String()); err != nil {
+					return
+				}
+				part.Parts = append(part.Parts, newPart)
+				if err = parse(newPart); err != nil {
+					return
+				}
+			} else {
+				// 是播放列表
+				segment := Segment{Url: segmentUrl}
+				part.Segments = append(part.Segments, segment)
+			}
+
 		}
 	}
 
-	m3u.Segments = segments
+	// 没有错误直接返回
 	return
-}
-
-func parseTag() {
-
 }
 
 func parseAttr() {
