@@ -20,17 +20,18 @@ func New(count int) (scheduler Scheduler, err error) {
 	}, nil
 }
 
-func (s *Scheduler) Work(executeFn func() error) {
+func (s *Scheduler) Work(executeFn func() error) (err error) {
 	defer func() {
 		<-s.Chs // 某个任务下载完成，让出
 		s.Done()
 	}()
 
 	//需要根据下载内容作存储等处理
-	if err := executeFn(); err != nil {
+	if err = executeFn(); err != nil {
 		// fixme: 处理下载时出现错误
-		panic(err)
+		return
 	}
 
 	s.Ans <- true // 告知下载完成
+	return
 }

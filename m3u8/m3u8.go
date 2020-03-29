@@ -82,6 +82,7 @@ func parse(part *ExtM3u8) (err error) {
 	var (
 		extInfReg     = regexp.MustCompile("^#EXTINF")
 		extXStreamInf = regexp.MustCompile("^#EXT-X-STREAM-INF")
+		tagReg        = regexp.MustCompile("^#EXT")
 		commentsReg   = regexp.MustCompile("^#[^EXT]")
 	)
 
@@ -92,9 +93,15 @@ func parse(part *ExtM3u8) (err error) {
 		switch {
 		// 注释直接跳过
 		case commentsReg.MatchString(fileLine):
+
+		/* START 考虑到的标签 */
 		case extXStreamInf.MatchString(fileLine):
 			part.IsMaster = true
 		case extInfReg.MatchString(fileLine):
+		/* END 考虑到的标签 */
+
+		// 没有考虑到的 Tag 标签
+		case tagReg.MatchString(fileLine):
 		default:
 			// m3u8 文件属性列表已经扫描完成，下面的文字都是包含片段信息的文本
 			// 或者包含片段内容，一般是 url 的绝对路径或者相对路径

@@ -46,6 +46,7 @@ func Start(nameString, pathString, urlString string) {
 		baseName        string // 分片文件目录名称
 		baseSegmentPath string // 分片文件下载具体路径 =  baseMediaPath + baseName
 		fileListPath    string // 分片文件检索文件 = baseMediaPath + "filelist.txt"
+		currentPart     *m3u8.ExtM3u8
 	)
 	// 创建视频集合文件夹
 	baseMediaPath = path.Join(pathString, nameString)
@@ -56,8 +57,10 @@ func Start(nameString, pathString, urlString string) {
 	// 创建视频文件夹
 	if len(playlist.Parts) > 0 {
 		// fixme: 指定下载通道
+		currentPart = playlist.Parts[0]
 		baseName = playlist.Parts[0].Name
 	} else {
+		currentPart = playlist
 		baseName = "part_1"
 	}
 
@@ -68,7 +71,7 @@ func Start(nameString, pathString, urlString string) {
 	}
 
 	content := ""
-	for index := range playlist.Segments {
+	for index := range currentPart.Segments {
 		filename := fmt.Sprintf("%04d.ts", index)
 		segmentItem := fmt.Sprintf("file '%s/%s'\n", baseName, filename)
 		content += segmentItem
@@ -84,7 +87,7 @@ func Start(nameString, pathString, urlString string) {
 
 	// 分发的下载线程
 	go func() {
-		for index, segmentUrl := range playlist.Segments {
+		for index, segmentUrl := range currentPart.Segments {
 			sc.Chs <- 1 // 限制线程数 （每次下载缓存加1， 直到加满阻塞）
 			sc.Add(1)
 
@@ -92,13 +95,15 @@ func Start(nameString, pathString, urlString string) {
 			filePath := path.Join(baseSegmentPath, filename)
 
 			go func(localPath string, urlString string) {
-				sc.Work(func() (err error) {
+				if err = sc.Work(func() (err error) {
 					// 处理下载文件路径
 					if err = downloader.StartDownload(filePath, urlString); err != nil {
 						return
 					}
 					return
-				})
+				}); err != nil {
+					log.Println("下载时出错：", err)
+				}
 			}(pathString, segmentUrl.Url.String())
 		}
 		sc.Wait()     // 等待所有分发出去的线程结束
@@ -108,11 +113,14 @@ func Start(nameString, pathString, urlString string) {
 	// 静静的等待每个下载完成
 	for range sc.Ans {
 		sc.Success++
-		fmt.Printf("总共%d个，已经下载%d个~\n", len(playlist.Segments), sc.Success)
+		fmt.Printf("总共%d个，已经下载%d个~\n", len(currentPart.Segments), sc.Success)
 	}
 
 	outFile := path.Join(pathString, fmt.Sprintf("%s.mp4", nameString))
-	utils.OutputMp4(fileListPath, outFile)
+	if err = utils.OutputMp4(fileListPath, outFile); err != nil {
+		log.Println("合并文件出错：", err)
+	}
+
 	fmt.Println("完成下载")
 }
 

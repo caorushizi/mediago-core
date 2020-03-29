@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -26,20 +25,14 @@ func IsUrl(str string) bool {
 	return urlReg.MatchString(str)
 }
 
-func OutputMp4(filesListPath string, outFile string) {
-	var (
-		err    error
-		cmd    *exec.Cmd
-		output []byte
-	)
+func OutputMp4(filesListPath string, outFile string) (err error) {
+	var cmd *exec.Cmd
 
-	cmd = exec.Command("ffmpeg", "-f", "concat", "-i", filesListPath,
+	cmd = exec.Command("ffmpeg", "-f", "-safe", "0", "concat", "-i", filesListPath,
 		"-acodec", "copy", "-vcodec", "copy", "-absf", "aac_adtstoasc", outFile)
 
-	if output, err = cmd.CombinedOutput(); err != nil {
-		fmt.Println(err)
-		fmt.Println(cmd.Stderr)
+	if _, err = cmd.CombinedOutput(); err != nil {
 		return
 	}
-	fmt.Println("Result: " + string(output))
+	return
 }
