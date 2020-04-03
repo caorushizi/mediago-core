@@ -5,6 +5,9 @@ HLS 视频下载
 
 更新日志
 ----
+v0.0.1 -- 2020年4月3日
+- 删除可视化界面
+- 支持主列表下载
 
 v0.0.1 -- 2020年3月24日
 
@@ -20,20 +23,10 @@ PS: windows下需要使用命令行工具使用
 
 环境要求：
 - go 1.13.3 以上
-- nodejs 12.16.1
-- gcc
 
 
 使用说明
 ----
-
-- mac
-```shell
-git clone https://github.com/caorushizi/mediago.git
-cd mediago
-./scripts/start.sh
-```
-- windows
 
 ```shell
 go build mediago.go
