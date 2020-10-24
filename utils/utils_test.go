@@ -4,8 +4,8 @@ import "testing"
 
 func TestOutputMp4(t *testing.T) {
 	if err := ConcatVideo(
-		"/Users/caorushizi/Downloads/test/鹡鸰女神1/filelist.txt",
-		"/Users/caorushizi/Downloads/test/鹡鸰女神1.mp4",
+		"/Users/Downloads/test/filelist.txt",
+		"/Users/Downloads/test.mp4",
 	); err != nil {
 		t.Error(err)
 	}
