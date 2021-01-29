@@ -3,9 +3,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path"
-
 	"github.com/grafov/m3u8"
 
 	"mediago/parser"
@@ -17,8 +14,8 @@ var (
 	sc scheduler.Scheduler
 )
 
-func Start(nameString, pathString, urlString string) (err error) {
-	outFile := path.Join(pathString, fmt.Sprintf("%s.mp4", nameString))
+func Start(name, videoDir, m3u8Url string) (err error) {
+	outFile := utils.PathJoin(videoDir, fmt.Sprintf("%s.mp4", name))
 	if utils.FileExist(outFile) {
 		return errors.New("文件已经存在！")
 	}
@@ -27,7 +24,7 @@ func Start(nameString, pathString, urlString string) (err error) {
 	utils.Logger.Debugf("初始化下载器")
 	sc = scheduler.New(15)
 
-	if err = utils.CheckDirAndAccess(pathString); err != nil {
+	if err = utils.PrepareDir(videoDir); err != nil {
 		return
 	}
 
@@ -38,25 +35,25 @@ func Start(nameString, pathString, urlString string) (err error) {
 		segmentDir     string // 分片文件下载具体路径 =  baseMediaDir + segmentDirName
 	)
 
-	if playlist, err = parser.ParseM3u8File(urlString); err != nil {
+	if playlist, err = parser.ParseM3u8File(m3u8Url); err != nil {
 		return
 	}
 
 	// 创建视频集合文件夹
-	baseMediaDir = path.Join(pathString, nameString)
-	if err = os.MkdirAll(baseMediaDir, os.ModePerm); err != nil {
+	baseMediaDir = utils.PathJoin(videoDir, name)
+	if err = utils.PrepareDir(baseMediaDir); err != nil {
 		return
 	}
 
 	// 创建视频片段文件夹
 	segmentDirName = "part_1"
-	segmentDir = path.Join(baseMediaDir, segmentDirName)
-	if err = os.MkdirAll(segmentDir, os.ModePerm); err != nil {
+	segmentDir = utils.PathJoin(baseMediaDir, segmentDirName)
+	if err = utils.PrepareDir(segmentDir); err != nil {
 		return
 	}
 
 	// 分发的下载线程
-	go dispatchTask(segmentDir, urlString, playlist)
+	go dispatchTask(segmentDir, m3u8Url, playlist)
 
 	// 静静的等待每个下载完成
 	for filename := range sc.Ans {
@@ -66,6 +63,11 @@ func Start(nameString, pathString, urlString string) (err error) {
 
 	if err = utils.ConcatVideo(segmentDir, outFile); err != nil {
 		return fmt.Errorf("合并文件出错：%s", err)
+	}
+
+	utils.Logger.Infof("开始清理视频片段文件夹")
+	if err = utils.RemoveDir(baseMediaDir); err != nil {
+		return
 	}
 
 	utils.Logger.Infof("下载完成")
@@ -101,8 +103,7 @@ func dispatchTask(localPath, baseUrl string, playlist *m3u8.MediaPlaylist) {
 		go execute(index, localPath, baseUrl, segmentURI, segmentKey)
 	}
 
-	sc.Wait()
-	close(sc.Ans)
+	sc.WaitProcessor()
 }
 
 func execute(index int, localPath string, baseUrl string, segmentUrl string, key *m3u8.Key) {

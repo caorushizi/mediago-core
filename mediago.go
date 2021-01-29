@@ -9,17 +9,25 @@ import (
 )
 
 func main() {
-	var nameFlag = flag.String("name", "新影片", "string类型参数")
-	var pathFlag = flag.String("path", "", "string类型参数")
-	var urlFlag = flag.String("url", "", "string类型参数")
+	var (
+		err      error
+		name     string
+		videoDir string
+		m3u8Url  string
+	)
+
+	flag.StringVar(&name, "name", "新影片", "string类型参数")
+	flag.StringVar(&videoDir, "path", "", "string类型参数")
+	flag.StringVar(&m3u8Url, "url", "", "string类型参数")
 	flag.Parse()
 
-	if !utils.IsUrl(*urlFlag) {
+	if !utils.IsUrl(m3u8Url) {
 		panic(errors.New("参数 url 格式错误"))
 	}
 
-	var err error
-	if err = engine.Start(*nameFlag, *pathFlag, *urlFlag); err != nil {
+	videoDir = utils.NormalizePath(videoDir)
+
+	if err = engine.Start(name, videoDir, m3u8Url); err != nil {
 		utils.Logger.Error(err)
 	}
 }
