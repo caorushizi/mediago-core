@@ -1,9 +1,10 @@
 package scheduler
 
 import (
-	"log"
 	"sync"
 	"time"
+
+	"mediago/utils"
 )
 
 type Scheduler struct {
@@ -28,7 +29,7 @@ func (s *Scheduler) Work(id int, executeFn func() error) {
 	s.Add(1)
 
 	if err = executeFn(); err != nil {
-		log.Printf("任务 #%d 下载失败，3秒后进行重试。", id)
+		utils.Logger.Errorf("任务 #%d 下载失败，3秒后进行重试: %s", id, err)
 		time.Sleep(3 * time.Second)
 		s.Work(id, executeFn)
 	}
