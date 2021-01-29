@@ -25,6 +25,11 @@ func CheckDirAndAccess(pathString string) (err error) {
 	return
 }
 
+func FileExist(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil || os.IsExist(err)
+}
+
 func IsUrl(str string) bool {
 	return urlReg.MatchString(str)
 }
