@@ -1,11 +1,12 @@
 package utils
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
+	"github.com/grafov/m3u8"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -14,7 +15,8 @@ import (
 )
 
 var (
-	urlReg = regexp.MustCompile("^https?://")
+	urlReg    = regexp.MustCompile("^https?://")
+	CachedKey = make(map[*m3u8.Key][]byte)
 )
 
 func CheckDirAndAccess(pathString string) (err error) {
@@ -83,22 +85,6 @@ func ConcatVideo(segmentDir, outFile string) (err error) {
 	return
 }
 
-func AES128Encrypt(origData, key, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	blockSize := block.BlockSize()
-	if len(iv) == 0 {
-		iv = key
-	}
-	origData = pkcs5Padding(origData, blockSize)
-	blockMode := cipher.NewCBCEncrypter(block, iv[:blockSize])
-	crypted := make([]byte, len(origData))
-	blockMode.CryptBlocks(crypted, origData)
-	return crypted, nil
-}
-
 func AES128Decrypt(crypted, key, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -115,14 +101,48 @@ func AES128Decrypt(crypted, key, iv []byte) ([]byte, error) {
 	return origData, nil
 }
 
-func pkcs5Padding(cipherText []byte, blockSize int) []byte {
-	padding := blockSize - len(cipherText)%blockSize
-	padText := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(cipherText, padText...)
-}
-
 func pkcs5UnPadding(origData []byte) []byte {
 	length := len(origData)
 	unPadding := int(origData[length-1])
 	return origData[:(length - unPadding)]
+}
+
+func ResolveUrl(segmentText string, baseUrl string) (urlString string, err error) {
+	// 如果 m3u8 列表中已经是完整的 url
+	if IsUrl(segmentText) {
+		return segmentText, nil
+	}
+
+	var resultUrl *url.URL
+	if resultUrl, err = url.Parse(baseUrl); err != nil {
+		return "", err
+	}
+	if path.IsAbs(segmentText) {
+		resultUrl.Path = segmentText
+	} else {
+		tempBaseUrl := path.Dir(resultUrl.Path)
+		resultUrl.Path = path.Join(tempBaseUrl, segmentText)
+	}
+
+	return resultUrl.String(), nil
+}
+
+func ParseKeyFromUrl(key *m3u8.Key, baseUrl string) {
+	// 如果已经请求过了，就不在请求
+	if _, ok := CachedKey[key]; ok {
+		return
+	}
+
+	if key.URI != "" {
+		keyUrl, err := ResolveUrl(key.URI, baseUrl)
+		if err != nil {
+			panic(err)
+		}
+		content, err := HttpGet(keyUrl)
+		if err != nil {
+			panic(err)
+		}
+
+		CachedKey[key] = content
+	}
 }

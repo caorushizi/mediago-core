@@ -22,16 +22,18 @@ func New(count int) (scheduler Scheduler) {
 	}
 }
 
-func (s *Scheduler) Work(id int, executeFn func() error) {
+type Processor func() error
+
+func (s *Scheduler) Work(id int, processor Processor) {
 	var err error
 
 	s.Chs <- id
 	s.Add(1)
 
-	if err = executeFn(); err != nil {
+	if err = processor(); err != nil {
 		utils.Logger.Errorf("任务 #%d 下载失败，3秒后进行重试: %s", id, err)
 		time.Sleep(3 * time.Second)
-		s.Work(id, executeFn)
+		s.Work(id, processor)
 	}
 
 	filename := <-s.Chs
