@@ -2,7 +2,6 @@ package utils
 
 import (
 	"path"
-	"strings"
 )
 
 func PathJoin(elem ...string) string {
@@ -10,12 +9,8 @@ func PathJoin(elem ...string) string {
 }
 
 func NormalizePath(dir string) string {
-	if path.IsAbs(dir) {
-		return dir
-	}
-
-	if !strings.HasPrefix(dir, "./") {
-		return "./" + dir
+	if dir == "" {
+		return "./"
 	}
 
 	return dir
