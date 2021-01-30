@@ -42,5 +42,6 @@ func main() {
 
 	if err = e.Run(params); err != nil {
 		utils.Logger.Error(err)
+		panic(err)
 	}
 }
