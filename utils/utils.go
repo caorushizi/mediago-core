@@ -17,7 +17,7 @@ func IsUrl(str string) bool {
 	return urlReg.MatchString(str)
 }
 
-func AES128Decrypt(crypted, key, iv []byte) ([]byte, error) {
+func AES128Decrypt(encrypted, key, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -27,9 +27,17 @@ func AES128Decrypt(crypted, key, iv []byte) ([]byte, error) {
 		iv = key
 	}
 	blockMode := cipher.NewCBCDecrypter(block, iv[:blockSize])
-	origData := make([]byte, len(crypted))
-	blockMode.CryptBlocks(origData, crypted)
+	origData := make([]byte, len(encrypted))
+	blockMode.CryptBlocks(origData, encrypted)
 	origData = pkcs5UnPadding(origData)
+
+	for index := range origData {
+		if origData[index] == uint8(71) {
+			origData = origData[index:]
+			break
+		}
+	}
+
 	return origData, nil
 }
 

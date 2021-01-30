@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"mediago/parser"
 
 	"mediago/engine"
 	"mediago/utils"
@@ -27,7 +28,19 @@ func main() {
 
 	videoDir = utils.NormalizePath(videoDir)
 
-	if err = engine.Start(name, videoDir, m3u8Url); err != nil {
+	e := &engine.Engine{}
+
+	decoder := &engine.M3u8Decoder{}
+
+	params := engine.DownloadParams{
+		Name:     name,
+		Local:    videoDir,
+		Url:      m3u8Url,
+		Decoder:  decoder,
+		Download: parser.DownloadSegment,
+	}
+
+	if err = e.Run(params); err != nil {
 		utils.Logger.Error(err)
 	}
 }

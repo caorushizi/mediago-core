@@ -48,8 +48,9 @@ func PrepareDir(dir string) error {
 }
 
 func RemoveDir(dirname string) (err error) {
-	//if err = os.RemoveAll(dirname); err != nil {
-	//	return
-	//}
+	//Logger.Infof("开始删除文件夹：%s", dirname)
+	if err = os.RemoveAll(dirname); err != nil {
+		return
+	}
 	return
 }

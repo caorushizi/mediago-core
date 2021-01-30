@@ -9,19 +9,20 @@ import (
 	"strings"
 )
 
-func ConcatVideo(segmentDir, outFile string) (err error) {
+func ConcatVideo(basePath, filename, part string) (err error) {
+	segmentDir := PathJoin(basePath, filename, part)
+	mediaDir := PathJoin(basePath, filename)
+
 	// 生成列表文件
 	var (
 		fileListTextPath string // 分片文件检索文件 = baseMediaPath + "filelist.txt"
 		fileListContent  string // 分片文件检索文件内容
 		fileListFiles    []os.FileInfo
 		playlistFile     *os.File
-		mediaDir         string
 	)
 
 	// 在分片视频文件夹同级创建 filelist.txt
-	mediaDir = path.Dir(segmentDir)
-	fileListTextPath = path.Join(mediaDir, "filelist.txt")
+	fileListTextPath = PathJoin(mediaDir, "filelist.txt")
 	if playlistFile, err = os.Create(fileListTextPath); err != nil {
 		return
 	}
@@ -33,7 +34,7 @@ func ConcatVideo(segmentDir, outFile string) (err error) {
 
 	for _, segmentFile := range fileListFiles {
 		if strings.HasSuffix(segmentFile.Name(), ".ts") {
-			filePath := path.Join(path.Base(segmentDir), segmentFile.Name())
+			filePath := path.Join(part, segmentFile.Name())
 			fileListItem := fmt.Sprintf("file '%s'\n", filePath)
 			fileListContent += fileListItem
 		}
@@ -46,8 +47,18 @@ func ConcatVideo(segmentDir, outFile string) (err error) {
 	// 开始执行命令
 	var cmd *exec.Cmd
 
-	cmd = exec.Command("ffmpeg", "-f", "concat", "-i", fileListTextPath,
-		"-acodec", "copy", "-vcodec", "copy", outFile)
+	cmd = exec.Command(
+		"ffmpeg",
+		"-f",
+		"concat",
+		"-i",
+		fileListTextPath,
+		"-acodec",
+		"copy",
+		"-vcodec",
+		"copy",
+		PathJoin(basePath, filename+".mp4"),
+	)
 
 	if _, err = cmd.CombinedOutput(); err != nil {
 		fmt.Print(cmd.Stderr)
