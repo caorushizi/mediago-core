@@ -3,8 +3,10 @@ package utils
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -32,7 +34,15 @@ func HttpGet(url string) (content []byte, err error) {
 		return
 	}
 
+	// TODO: 实现 http 方法
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36")
+	for _, header := range strings.Split(Headers, "|") {
+		if header == "" {
+			continue
+		}
+		temp := strings.Split(header, "~")
+		req.Header.Add(temp[0], temp[1])
+	}
 
 	if resp, err = client.Do(req); err != nil {
 		return
@@ -40,7 +50,8 @@ func HttpGet(url string) (content []byte, err error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, errors.New("响应状态码错误")
+		errMsg := fmt.Sprintf("响应状态码错误：%d", resp.StatusCode)
+		return nil, errors.New(errMsg)
 	}
 
 	if content, err = ioutil.ReadAll(resp.Body); err != nil {

@@ -11,6 +11,7 @@ import (
 var (
 	urlReg    = regexp.MustCompile("^https?://")
 	CachedKey = make(map[*m3u8.Key][]byte)
+	Headers   string
 )
 
 func IsUrl(str string) bool {
