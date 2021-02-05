@@ -3,7 +3,9 @@ package utils
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/grafov/m3u8"
 )
@@ -57,10 +59,14 @@ func ParseKeyFromUrl(key *m3u8.Key, baseUrl string) {
 	if key.URI != "" {
 		keyUrl, err := ResolveUrl(key.URI, baseUrl)
 		if err != nil {
+			fmt.Printf("解析KEY时出错\n")
+			time.Sleep(10 * time.Second)
 			panic(err)
 		}
 		content, err := HttpGet(keyUrl)
 		if err != nil {
+			fmt.Printf("解析KEY时出错\n")
+			time.Sleep(10 * time.Second)
 			panic(err)
 		}
 

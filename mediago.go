@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"mediago/engine"
 	"mediago/parser"
 	"mediago/utils"
+	"time"
 )
 
 func main() {
@@ -25,6 +27,8 @@ func main() {
 	flag.Parse()
 
 	if !utils.IsUrl(m3u8Url) {
+		fmt.Printf("参数 url 格式错误\n")
+		time.Sleep(10 * time.Second)
 		panic(errors.New("参数 url 格式错误"))
 	}
 
@@ -46,6 +50,7 @@ func main() {
 
 	if err = e.Run(params); err != nil {
 		utils.Logger.Error(err)
+		time.Sleep(10 * time.Second)
 		panic(err)
 	}
 }
