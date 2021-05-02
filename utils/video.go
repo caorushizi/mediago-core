@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"strings"
 )
 
@@ -47,8 +48,15 @@ func ConcatVideo(basePath, filename, part string) (err error) {
 	// 开始执行命令
 	var cmd *exec.Cmd
 
+	localPath, _ := os.Getwd()
+
+	binName := "ffmpeg"
+	if runtime.GOOS == "darwin" {
+		binName = "./ffmpeg"
+	}
+
 	cmd = exec.Command(
-		"ffmpeg",
+		binName,
 		"-f",
 		"concat",
 		"-i",
@@ -59,6 +67,8 @@ func ConcatVideo(basePath, filename, part string) (err error) {
 		"copy",
 		PathJoin(basePath, filename+".mp4"),
 	)
+
+	cmd.Dir = localPath
 
 	if _, err = cmd.CombinedOutput(); err != nil {
 		fmt.Print(cmd.Stderr)
