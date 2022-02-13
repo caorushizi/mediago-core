@@ -1,11 +1,11 @@
 package engine
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/grafov/m3u8"
-	"mediago/parser"
 	"mediago/utils"
 	"os"
 	"path"
@@ -24,12 +24,16 @@ func processSegment(params DownloadParams) error {
 		return nil
 	}
 
-	if content, err = params.Download(params.Url); err != nil {
+	if content, err = utils.HttpGet(params.Url); err != nil {
 		return err
 	}
 
-	if content, err = params.Decoder.Decode(content); err != nil {
-		return err
+	decoder := *params.Decoder
+	switch decoder.Method {
+	case "AES-128":
+		if content, err = utils.AES128Decrypt(content, decoder.Key, decoder.Iv); err != nil {
+			return err
+		}
 	}
 
 	if downloadFile, err = os.Create(filepath); err != nil {
@@ -39,7 +43,10 @@ func processSegment(params DownloadParams) error {
 	if _, err = downloadFile.Write(content); err != nil {
 		return err
 	}
-	defer downloadFile.Close()
+
+	if err = downloadFile.Close(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -61,8 +68,31 @@ func processM3u8File(params DownloadParams) ([]DownloadParams, error) {
 		return nil, err
 	}
 
-	if playlist, err = parser.ParseM3u8File(params.Url); err != nil {
+	// 开始处理 http 请求
+	utils.Logger.Debugf("开始解析 m3u8 文件")
+	var (
+		listType m3u8.ListType
+		p        m3u8.Playlist
+	)
+
+	var content []byte
+	if content, err = utils.HttpGet(params.Url); err != nil {
 		return nil, err
+	}
+	m3u8Reader := bytes.NewReader(content)
+	if p, listType, err = m3u8.DecodeFrom(m3u8Reader, true); err != nil {
+		return nil, err
+	}
+
+	switch listType {
+	case m3u8.MEDIA:
+		playlist = p.(*m3u8.MediaPlaylist)
+	case m3u8.MASTER:
+		return nil, errors.New("不是播放列表")
+	}
+
+	if playlist == nil {
+		return nil, errors.New("片段列表为空")
 	}
 
 	// 创建视频集合文件夹
@@ -119,12 +149,11 @@ func processM3u8File(params DownloadParams) ([]DownloadParams, error) {
 			Name:  fmt.Sprintf("%06d.ts", index),
 			Local: segmentDir,
 			Url:   segmentUrl,
-			Decoder: &SegmentDecoder{
+			Decoder: &Decoder{
 				Method: method,
 				Key:    key,
 				Iv:     iv,
 			},
-			Download: parser.DownloadSegment,
 		})
 	}
 

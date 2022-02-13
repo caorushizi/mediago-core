@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"mediago/engine"
-	"mediago/parser"
 	"mediago/utils"
 	"time"
 )
@@ -38,14 +37,11 @@ func main() {
 
 	e := &engine.Engine{}
 
-	decoder := &engine.M3u8Decoder{}
-
 	params := engine.DownloadParams{
-		Name:     name,
-		Local:    videoDir,
-		Url:      m3u8Url,
-		Decoder:  decoder,
-		Download: parser.DownloadSegment,
+		Name:    name,
+		Local:   videoDir,
+		Url:     m3u8Url,
+		Decoder: nil,
 	}
 
 	if err = e.Run(params); err != nil {

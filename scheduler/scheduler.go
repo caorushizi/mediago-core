@@ -14,7 +14,7 @@ type Scheduler struct {
 	Success int
 }
 
-// 创建新的调度器
+// New 创建新的调度器
 func New(count int) (scheduler Scheduler) {
 	return Scheduler{
 		chs: make(chan string, count),

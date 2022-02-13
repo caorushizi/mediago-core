@@ -22,7 +22,22 @@ func (e *Engine) Run(params DownloadParams) (err error) {
 	}
 
 	// 分发的下载线程
-	go dispatchTask(paramsList)
+	go func(paramsList []DownloadParams) {
+		utils.Logger.Infof("总共%d条任务", len(paramsList))
+		s.Add(len(paramsList))
+
+		for _, params := range paramsList {
+			go func(params DownloadParams) {
+				s.Work(params.Name, func() (err error) {
+					err = processSegment(params)
+					return
+				})
+			}(params)
+		}
+
+		s.Wait()
+		close(s.Ans)
+	}(paramsList)
 
 	// 静静的等待每个下载完成
 	for filename := range s.Ans {
@@ -42,21 +57,4 @@ func (e *Engine) Run(params DownloadParams) (err error) {
 
 	utils.Logger.Infof("下载完成")
 	return
-}
-
-func dispatchTask(paramsList []DownloadParams) {
-	utils.Logger.Infof("总共%d条任务", len(paramsList))
-	s.Add(len(paramsList))
-
-	for _, params := range paramsList {
-		go func(params DownloadParams) {
-			s.Work(params.Name, func() (err error) {
-				err = processSegment(params)
-				return
-			})
-		}(params)
-	}
-
-	s.Wait()
-	close(s.Ans)
 }
