@@ -15,3 +15,6 @@ type DownloadParams struct {
 	Url     string
 	Decoder *Decoder
 }
+
+type M3u8DownloadParams struct {
+}

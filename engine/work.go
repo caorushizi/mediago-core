@@ -3,10 +3,10 @@ package engine
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/grafov/m3u8"
 	"mediago/utils"
+	"net/url"
 	"os"
 	"path"
 )
@@ -41,6 +41,7 @@ func processSegment(params DownloadParams) error {
 	}
 
 	if _, err = downloadFile.Write(content); err != nil {
+		utils.Logger.Error(err)
 		return err
 	}
 
@@ -51,7 +52,7 @@ func processSegment(params DownloadParams) error {
 	return nil
 }
 
-func processM3u8File(params DownloadParams) ([]DownloadParams, error) {
+func processM3u8File(params DownloadParams, out chan DownloadParams) {
 	var (
 		err          error
 		playlist     *m3u8.MediaPlaylist
@@ -61,11 +62,13 @@ func processM3u8File(params DownloadParams) ([]DownloadParams, error) {
 
 	outFile := utils.PathJoin(params.Local, fmt.Sprintf("%s.mp4", params.Name))
 	if utils.FileExist(outFile) {
-		return nil, errors.New("文件已经存在！")
+		utils.Logger.Infof("文件已经存在！")
+		return
 	}
 
 	if err = utils.PrepareDir(params.Local); err != nil {
-		return nil, err
+		utils.Logger.Error(err)
+		return
 	}
 
 	// 开始处理 http 请求
@@ -77,85 +80,114 @@ func processM3u8File(params DownloadParams) ([]DownloadParams, error) {
 
 	var content []byte
 	if content, err = utils.HttpGet(params.Url); err != nil {
-		return nil, err
+		utils.Logger.Error(err)
+		return
 	}
 	m3u8Reader := bytes.NewReader(content)
 	if p, listType, err = m3u8.DecodeFrom(m3u8Reader, true); err != nil {
-		return nil, err
+		utils.Logger.Error(err)
+		return
 	}
 
 	switch listType {
 	case m3u8.MEDIA:
 		playlist = p.(*m3u8.MediaPlaylist)
-	case m3u8.MASTER:
-		return nil, errors.New("不是播放列表")
-	}
+		fmt.Printf("%v\n", playlist)
 
-	if playlist == nil {
-		return nil, errors.New("片段列表为空")
-	}
-
-	// 创建视频集合文件夹
-	baseMediaDir = utils.PathJoin(params.Local, params.Name)
-	if err = utils.PrepareDir(baseMediaDir); err != nil {
-		return nil, err
-	}
-
-	// 创建视频片段文件夹
-	segmentDir = utils.PathJoin(baseMediaDir, "part_1")
-	if err = utils.PrepareDir(segmentDir); err != nil {
-		return nil, err
-	}
-
-	var (
-		segmentKey *m3u8.Key
-		paramsList []DownloadParams
-	)
-
-	for index, segment := range playlist.Segments {
-		if segment == nil {
-			continue
+		if playlist == nil {
+			utils.Logger.Infof("片段列表为空")
+			return
 		}
 
-		var segmentUrl string
-
-		if segmentUrl, err = utils.ResolveUrl(segment.URI, params.Url); err != nil {
-			return nil, err
+		// 创建视频集合文件夹
+		baseMediaDir = utils.PathJoin(params.Local, params.Name)
+		if err = utils.PrepareDir(baseMediaDir); err != nil {
+			utils.Logger.Error(err)
+			return
 		}
 
-		// 当前片段是否含有 key ，如果没有则使用上一个片段的 key
-		if segment.Key != nil {
-			segmentKey = segment.Key
-			utils.ParseKeyFromUrl(segmentKey, params.Url)
+		// 创建视频片段文件夹
+		segmentDir = utils.PathJoin(baseMediaDir, "part_1")
+		if err = utils.PrepareDir(segmentDir); err != nil {
+			utils.Logger.Error(err)
+			return
 		}
 
 		var (
-			method string
-			key    []byte
-			iv     []byte
+			segmentKey *m3u8.Key
 		)
 
-		if segmentKey == nil {
-			method = ""
-		} else {
-			method = segmentKey.Method
-			key = utils.CachedKey[segmentKey]
-			if iv, err = hex.DecodeString(segmentKey.IV[2:]); err != nil {
-				return nil, err
+		for index, segment := range playlist.Segments {
+			if segment == nil {
+				continue
 			}
-		}
 
-		paramsList = append(paramsList, DownloadParams{
-			Name:  fmt.Sprintf("%06d.ts", index),
-			Local: segmentDir,
-			Url:   segmentUrl,
-			Decoder: &Decoder{
-				Method: method,
-				Key:    key,
-				Iv:     iv,
-			},
-		})
+			var segmentUrl string
+
+			if segmentUrl, err = utils.ResolveUrl(segment.URI, params.Url); err != nil {
+				// todo: 处理错误
+				utils.Logger.Error(err)
+				return
+			}
+
+			// 当前片段是否含有 key ，如果没有则使用上一个片段的 key
+			if segment.Key != nil {
+				segmentKey = segment.Key
+				utils.ParseKeyFromUrl(segmentKey, params.Url)
+			}
+
+			var (
+				method string
+				key    []byte
+				iv     []byte
+			)
+
+			if segmentKey == nil {
+				method = ""
+			} else {
+				method = segmentKey.Method
+				key = utils.CachedKey[segmentKey]
+				if iv, err = hex.DecodeString(segmentKey.IV[2:]); err != nil {
+					utils.Logger.Error(err)
+					return
+				}
+			}
+
+			params := DownloadParams{
+				Name:  fmt.Sprintf("%06d.ts", index),
+				Local: segmentDir,
+				Url:   segmentUrl,
+				Decoder: &Decoder{
+					Method: method,
+					Key:    key,
+					Iv:     iv,
+				},
+			}
+
+			out <- params
+		}
+	case m3u8.MASTER:
+		masterPlaylist := p.(*m3u8.MasterPlaylist)
+
+		fmt.Printf("%v\n", masterPlaylist)
+		variants := masterPlaylist.Variants
+		fmt.Printf("%v\n", variants)
+
+		// todo: 这里选择清晰度
+		selected := variants[0]
+
+		urlStr := selected.URI
+		var urlOb *url.URL
+		if !utils.IsUrl(urlStr) {
+			if urlOb, err = url.Parse(params.Url); err != nil {
+				utils.Logger.Error(err)
+				return
+			}
+			urlOb.Path = urlStr
+		}
+		params.Url = urlOb.String()
+		processM3u8File(params, out)
+		return
 	}
 
-	return paramsList, nil
 }

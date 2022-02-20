@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 )
@@ -54,7 +54,7 @@ func HttpGet(url string) (content []byte, err error) {
 		return nil, errors.New(errMsg)
 	}
 
-	if content, err = ioutil.ReadAll(resp.Body); err != nil {
+	if content, err = httputil.DumpResponse(resp, true); err != nil {
 		return nil, err
 	}
 
