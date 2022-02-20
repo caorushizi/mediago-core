@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/grafov/m3u8"
 	"mediago/utils"
@@ -11,71 +12,68 @@ import (
 	"path"
 )
 
-func processSegment(segmentParams <-chan DownloadParams, errParams chan<- DownloadParams) {
-	for params := range segmentParams {
-		fmt.Printf("开始下载：%v\n", params)
-		var (
-			downloadFile *os.File
-			filepath     = path.Join(params.Local, params.Name)
-			content      []byte
-			err          error
-		)
+func processSegment(params DownloadParams, errParams chan<- DownloadParams) {
+	fmt.Printf("开始下载：%v\n", params)
+	var (
+		downloadFile *os.File
+		filepath     = path.Join(params.Local, params.Name)
+		content      []byte
+		err          error
+	)
 
-		// 判断文件是否存在，如果存在则跳过下载
-		if utils.FileExist(filepath) {
-			break
-		}
+	// 判断文件是否存在，如果存在则跳过下载
+	if utils.FileExist(filepath) {
+		return
+	}
 
-		if content, err = utils.HttpGet(params.Url); err != nil {
+	if content, err = utils.HttpGet(params.Url); err != nil {
+		utils.Logger.Error(err)
+		errParams <- params
+		fmt.Printf("下载失败，正在重试。")
+		return
+	}
+
+	decoder := *params.Decoder
+	switch decoder.Method {
+	case "AES-128":
+		if content, err = utils.AES128Decrypt(content, decoder.Key, decoder.Iv); err != nil {
 			utils.Logger.Error(err)
-			errParams <- params
-			fmt.Printf("下载失败，正在重试。")
-			break
+			return
 		}
+	}
 
-		decoder := *params.Decoder
-		switch decoder.Method {
-		case "AES-128":
-			if content, err = utils.AES128Decrypt(content, decoder.Key, decoder.Iv); err != nil {
-				utils.Logger.Error(err)
-				break
-			}
-		}
+	if downloadFile, err = os.Create(filepath); err != nil {
+		utils.Logger.Error(err)
+		return
+	}
 
-		if downloadFile, err = os.Create(filepath); err != nil {
-			utils.Logger.Error(err)
-			break
-		}
+	if _, err = downloadFile.Write(content); err != nil {
+		utils.Logger.Error(err)
+		return
+	}
 
-		if _, err = downloadFile.Write(content); err != nil {
-			utils.Logger.Error(err)
-			break
-		}
-
-		if err = downloadFile.Close(); err != nil {
-			utils.Logger.Error(err)
-			break
-		}
+	if err = downloadFile.Close(); err != nil {
+		utils.Logger.Error(err)
+		return
 	}
 }
 
-func processM3u8File(params DownloadParams, out chan DownloadParams) {
+func processM3u8File(params DownloadParams) ([]DownloadParams, error) {
 	var (
 		err          error
 		playlist     *m3u8.MediaPlaylist
 		baseMediaDir string // 分片文件文件夹下载路径
 		segmentDir   string // 分片文件下载具体路径 =  baseMediaDir + segmentDirName
+		downloadList []DownloadParams
 	)
 
 	outFile := utils.PathJoin(params.Local, fmt.Sprintf("%s.mp4", params.Name))
 	if utils.FileExist(outFile) {
-		utils.Logger.Infof("文件已经存在！")
-		return
+		return nil, errors.New("文件已经存在！")
 	}
 
 	if err = utils.PrepareDir(params.Local); err != nil {
-		utils.Logger.Error(err)
-		return
+		return nil, err
 	}
 
 	// 开始处理 http 请求
@@ -87,13 +85,12 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 
 	var content []byte
 	if content, err = utils.HttpGet(params.Url); err != nil {
-		utils.Logger.Error(err)
-		return
+		return nil, err
 	}
+	fmt.Printf("下载完成123123123")
 	m3u8Reader := bytes.NewReader(content)
 	if p, listType, err = m3u8.DecodeFrom(m3u8Reader, true); err != nil {
-		utils.Logger.Error(err)
-		return
+		return nil, err
 	}
 
 	switch listType {
@@ -101,22 +98,19 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 		playlist = p.(*m3u8.MediaPlaylist)
 
 		if playlist == nil {
-			utils.Logger.Infof("片段列表为空")
-			return
+			return nil, errors.New("片段列表为空")
 		}
 
 		// 创建视频集合文件夹
 		baseMediaDir = utils.PathJoin(params.Local, params.Name)
 		if err = utils.PrepareDir(baseMediaDir); err != nil {
-			utils.Logger.Error(err)
-			return
+			return nil, err
 		}
 
 		// 创建视频片段文件夹
 		segmentDir = utils.PathJoin(baseMediaDir, "part_1")
 		if err = utils.PrepareDir(segmentDir); err != nil {
-			utils.Logger.Error(err)
-			return
+			return nil, err
 		}
 
 		var (
@@ -132,8 +126,7 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 
 			if segmentUrl, err = utils.ResolveUrl(segment.URI, params.Url); err != nil {
 				// todo: 处理错误
-				utils.Logger.Error(err)
-				return
+				return nil, err
 			}
 
 			// 当前片段是否含有 key ，如果没有则使用上一个片段的 key
@@ -154,12 +147,11 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 				method = segmentKey.Method
 				key = utils.CachedKey[segmentKey]
 				if iv, err = hex.DecodeString(segmentKey.IV[2:]); err != nil {
-					utils.Logger.Error(err)
-					return
+					return nil, err
 				}
 			}
 
-			params := DownloadParams{
+			downloadList = append(downloadList, DownloadParams{
 				Name:  fmt.Sprintf("%06d.ts", index),
 				Local: segmentDir,
 				Url:   segmentUrl,
@@ -168,10 +160,9 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 					Key:    key,
 					Iv:     iv,
 				},
-			}
-
-			out <- params
+			})
 		}
+		return downloadList, nil
 	case m3u8.MASTER:
 		masterPlaylist := p.(*m3u8.MasterPlaylist)
 		variants := masterPlaylist.Variants
@@ -183,14 +174,12 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 		var urlOb *url.URL
 		if !utils.IsUrl(urlStr) {
 			if urlOb, err = url.Parse(params.Url); err != nil {
-				utils.Logger.Error(err)
-				return
+				return nil, err
 			}
 			urlOb.Path = urlStr
 		}
 		params.Url = urlOb.String()
-		processM3u8File(params, out)
-		return
+		return processM3u8File(params)
 	}
-
+	return nil, errors.New("没有匹配到正确的媒体类型")
 }

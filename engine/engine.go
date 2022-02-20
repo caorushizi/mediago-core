@@ -3,22 +3,28 @@ package engine
 import (
 	"fmt"
 	"mediago/utils"
+	"sync"
 )
 
-func createM3u8FileWorker(params DownloadParams) (<-chan DownloadParams, <-chan DownloadParams) {
-	out := make(chan DownloadParams, 10)
-	done := make(chan DownloadParams)
-
-	go processM3u8File(params, out)
-
-	return out, done
-}
-
 func createSegmentWorker() (chan<- DownloadParams, <-chan DownloadParams) {
-	out := make(chan DownloadParams, 10)
+	out := make(chan DownloadParams, 20)
 	err := make(chan DownloadParams, 20)
+	chs := make(chan DownloadParams, 15)
+	wg := sync.WaitGroup{}
 
-	go processSegment(out, err)
+	go func() {
+		for params := range out {
+			wg.Add(1)
+			chs <- params
+			go func(params DownloadParams) {
+				processSegment(params, err)
+				<-chs
+				wg.Done()
+			}(params)
+		}
+
+		wg.Wait()
+	}()
 
 	return out, err
 }
@@ -28,11 +34,13 @@ func (e *Engine) Run(params DownloadParams) (err error) {
 	// 开始初始化下载器
 	utils.Logger.Debugf("初始化下载器")
 
-	out, done := createM3u8FileWorker(params)
+	var downloadList []DownloadParams
+	if downloadList, err = processM3u8File(params); err != nil {
+		return err
+	}
+
 	segmentChan, errChan := createSegmentWorker()
 	var errQueue []DownloadParams
-	var workQueue []DownloadParams
-	var parseDone bool
 	retryTime := make(map[string]int)
 
 	for {
@@ -41,8 +49,8 @@ func (e *Engine) Run(params DownloadParams) (err error) {
 		var activeWorker chan<- DownloadParams
 		var isErrQueue bool
 
-		if len(workQueue) > 0 {
-			activeWorkDownload = workQueue[0]
+		if len(downloadList) > 0 {
+			activeWorkDownload = downloadList[0]
 			activeWorker = segmentChan
 		}
 
@@ -56,24 +64,20 @@ func (e *Engine) Run(params DownloadParams) (err error) {
 			isErrQueue = true
 		}
 
-		if parseDone && len(workQueue) == 0 && len(errQueue) == 0 {
+		if len(downloadList) == 0 && len(errQueue) == 0 {
 			fmt.Printf("下载完成\n")
 			break
 		}
 
 		select {
-		case segmentDownload := <-out:
-			workQueue = append(workQueue, segmentDownload)
 		case segmentDownload := <-errChan:
 			errQueue = append(errQueue, segmentDownload)
 		case activeWorker <- activeWorkDownload:
 			if !isErrQueue {
-				workQueue = workQueue[1:]
+				downloadList = downloadList[1:]
 			} else {
 				errQueue = errQueue[1:]
 			}
-		case <-done:
-			parseDone = true
 		}
 
 	}
