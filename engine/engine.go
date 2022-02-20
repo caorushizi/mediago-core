@@ -5,12 +5,22 @@ import (
 	"mediago/utils"
 )
 
-func createM3u8FileWorker(params DownloadParams) <-chan DownloadParams {
+func createM3u8FileWorker(params DownloadParams) (<-chan DownloadParams, <-chan DownloadParams) {
 	out := make(chan DownloadParams, 10)
+	done := make(chan DownloadParams)
 
 	go processM3u8File(params, out)
 
-	return out
+	return out, done
+}
+
+func createSegmentWorker() (chan<- DownloadParams, <-chan DownloadParams) {
+	out := make(chan DownloadParams, 10)
+	err := make(chan DownloadParams, 20)
+
+	go processSegment(out, err)
+
+	return out, err
 }
 
 func (e *Engine) Run(params DownloadParams) (err error) {
@@ -18,82 +28,55 @@ func (e *Engine) Run(params DownloadParams) (err error) {
 	// 开始初始化下载器
 	utils.Logger.Debugf("初始化下载器")
 
-	out := createM3u8FileWorker(params)
+	out, done := createM3u8FileWorker(params)
+	segmentChan, errChan := createSegmentWorker()
 	var errQueue []DownloadParams
 	var workQueue []DownloadParams
+	var parseDone bool
 	retryTime := make(map[string]int)
 
-	var (
-		activeWork DownloadParams
-		activeErr  DownloadParams
-	)
 	for {
-		activeWorker := make(chan<- DownloadParams)
-		errWorker := make(chan<- DownloadParams)
+		var activeWorkDownload DownloadParams
+		var errWorkDownload DownloadParams
+		var activeWorker chan<- DownloadParams
+		var isErrQueue bool
+
 		if len(workQueue) > 0 {
-			activeWork = workQueue[0]
+			activeWorkDownload = workQueue[0]
+			activeWorker = segmentChan
 		}
-		if len(errQueue) > 0 {
-			activeErr = errQueue[0]
+
+		if len(errQueue) > 0 && activeWorker == nil {
+			errWorkDownload = errQueue[0]
+			if value, exist := retryTime[errWorkDownload.Url]; !exist || value >= 15 {
+				continue
+			}
+			retryTime[errWorkDownload.Url]++
+			activeWorker = segmentChan
+			isErrQueue = true
+		}
+
+		if parseDone && len(workQueue) == 0 && len(errQueue) == 0 {
+			fmt.Printf("下载完成\n")
+			break
 		}
 
 		select {
 		case segmentDownload := <-out:
-			fmt.Printf("%v\n", segmentDownload)
 			workQueue = append(workQueue, segmentDownload)
-		case activeWorker <- activeWork:
-			fmt.Printf("activeWork %v\n", activeWorker)
-			if err := processSegment(activeWork); err != nil {
-				utils.Logger.Error(err)
-				errQueue = append(errQueue, activeWork)
-				retryTime[activeWork.Url]++
-			} else {
+		case segmentDownload := <-errChan:
+			errQueue = append(errQueue, segmentDownload)
+		case activeWorker <- activeWorkDownload:
+			if !isErrQueue {
 				workQueue = workQueue[1:]
-			}
-		case errWorker <- activeErr:
-			fmt.Printf("activeErr %v\n", activeErr)
-			value, exist := retryTime[activeErr.Url]
-			if !exist {
-				break
-			}
-			if value >= 15 {
-				break
-			}
-			if err := processSegment(activeErr); err != nil {
-				utils.Logger.Error(err)
-				errQueue = append(errQueue, activeErr)
-				retryTime[activeErr.Url]++
 			} else {
 				errQueue = errQueue[1:]
 			}
-		default:
+		case <-done:
+			parseDone = true
 		}
 
 	}
-
-	//// 分发的下载线程
-	//go func(paramsList []DownloadParams) {
-	//	utils.Logger.Infof("总共%d条任务", len(paramsList))
-	//	s.Add(len(paramsList))
-	//
-	//	for _, params := range paramsList {
-	//		go func(params DownloadParams) {
-	//			s.Work(params.Name, func() (err error) {
-	//				err = processSegment(params)
-	//				return
-	//			})
-	//		}(params)
-	//	}
-	//
-	//	s.Wait()
-	//	close(s.Ans)
-	//}(paramsList)
-	//
-	//// 静静的等待每个下载完成
-	//for filename := range s.Ans {
-	//	s.Success++
-	//	utils.Logger.Infof("%06d: %s 片段已完成", s.Success, filename)
-	//}
 
 	if err = utils.ConcatVideo(params.Local, params.Name, "part_1"); err != nil {
 		return fmt.Errorf("合并文件出错：%s", err)

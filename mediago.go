@@ -19,8 +19,8 @@ func main() {
 	)
 
 	flag.StringVar(&name, "name", "新影片", "string类型参数")
-	flag.StringVar(&videoDir, "path", "/Users/ziying/Desktop/test-desktop", "string类型参数")
-	flag.StringVar(&m3u8Url, "url", "https://new.iskcd.com/20220219/EwQzAhJg/index.m3u8", "string类型参数")
+	flag.StringVar(&videoDir, "path", "", "string类型参数")
+	flag.StringVar(&m3u8Url, "url", "", "string类型参数")
 	flag.StringVar(&headers, "headers", "", "string类型参数")
 
 	flag.Parse()

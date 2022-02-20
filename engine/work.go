@@ -11,45 +11,52 @@ import (
 	"path"
 )
 
-func processSegment(params DownloadParams) error {
-	var (
-		downloadFile *os.File
-		filepath     = path.Join(params.Local, params.Name)
-		content      []byte
-		err          error
-	)
+func processSegment(segmentParams <-chan DownloadParams, errParams chan<- DownloadParams) {
+	for params := range segmentParams {
+		fmt.Printf("开始下载：%v\n", params)
+		var (
+			downloadFile *os.File
+			filepath     = path.Join(params.Local, params.Name)
+			content      []byte
+			err          error
+		)
 
-	// 判断文件是否存在，如果存在则跳过下载
-	if utils.FileExist(filepath) {
-		return nil
-	}
+		// 判断文件是否存在，如果存在则跳过下载
+		if utils.FileExist(filepath) {
+			break
+		}
 
-	if content, err = utils.HttpGet(params.Url); err != nil {
-		return err
-	}
+		if content, err = utils.HttpGet(params.Url); err != nil {
+			utils.Logger.Error(err)
+			errParams <- params
+			fmt.Printf("下载失败，正在重试。")
+			break
+		}
 
-	decoder := *params.Decoder
-	switch decoder.Method {
-	case "AES-128":
-		if content, err = utils.AES128Decrypt(content, decoder.Key, decoder.Iv); err != nil {
-			return err
+		decoder := *params.Decoder
+		switch decoder.Method {
+		case "AES-128":
+			if content, err = utils.AES128Decrypt(content, decoder.Key, decoder.Iv); err != nil {
+				utils.Logger.Error(err)
+				break
+			}
+		}
+
+		if downloadFile, err = os.Create(filepath); err != nil {
+			utils.Logger.Error(err)
+			break
+		}
+
+		if _, err = downloadFile.Write(content); err != nil {
+			utils.Logger.Error(err)
+			break
+		}
+
+		if err = downloadFile.Close(); err != nil {
+			utils.Logger.Error(err)
+			break
 		}
 	}
-
-	if downloadFile, err = os.Create(filepath); err != nil {
-		return err
-	}
-
-	if _, err = downloadFile.Write(content); err != nil {
-		utils.Logger.Error(err)
-		return err
-	}
-
-	if err = downloadFile.Close(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func processM3u8File(params DownloadParams, out chan DownloadParams) {
@@ -92,7 +99,6 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 	switch listType {
 	case m3u8.MEDIA:
 		playlist = p.(*m3u8.MediaPlaylist)
-		fmt.Printf("%v\n", playlist)
 
 		if playlist == nil {
 			utils.Logger.Infof("片段列表为空")
@@ -168,10 +174,7 @@ func processM3u8File(params DownloadParams, out chan DownloadParams) {
 		}
 	case m3u8.MASTER:
 		masterPlaylist := p.(*m3u8.MasterPlaylist)
-
-		fmt.Printf("%v\n", masterPlaylist)
 		variants := masterPlaylist.Variants
-		fmt.Printf("%v\n", variants)
 
 		// todo: 这里选择清晰度
 		selected := variants[0]
