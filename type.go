@@ -1,4 +1,4 @@
-package engine
+package main
 
 type Decoder struct {
 	Method string
