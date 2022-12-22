@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"mediago/engine"
 	"mediago/utils"
 	"time"
 )
@@ -35,9 +34,9 @@ func main() {
 
 	videoDir = utils.NormalizePath(videoDir)
 
-	e := &engine.Engine{}
+	e := &Engine{}
 
-	params := engine.DownloadParams{
+	params := DownloadParams{
 		Name:    name,
 		Local:   videoDir,
 		Url:     m3u8Url,

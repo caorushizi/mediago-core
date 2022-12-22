@@ -1,4 +1,4 @@
-package engine
+package main
 
 type Decoder struct {
 	Method string
@@ -14,4 +14,7 @@ type DownloadParams struct {
 	Local   string
 	Url     string
 	Decoder *Decoder
+}
+
+type M3u8DownloadParams struct {
 }

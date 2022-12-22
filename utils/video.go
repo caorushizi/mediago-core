@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"runtime"
 	"strings"
 )
 
@@ -51,9 +50,6 @@ func ConcatVideo(basePath, filename, part string) (err error) {
 	localPath, _ := os.Getwd()
 
 	binName := "ffmpeg"
-	if runtime.GOOS == "darwin" {
-		binName = "./ffmpeg"
-	}
 
 	cmd = exec.Command(
 		binName,
