@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/grafov/m3u8"
 	"mediago/utils"
 	"net/url"
 	"os"
 	"path"
+
+	"github.com/grafov/m3u8"
 )
 
 func processSegment(params DownloadParams, errParams chan<- DownloadParams) {
