@@ -1,13 +1,23 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"fmt"
+
+	v1 "caorushizi.cn/mediago/api/v1"
+	"caorushizi.cn/mediago/config"
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
-	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-	r.Run()
+
+	fmt.Printf("Hello, World!%v\n", config.Config)
+
+	router := gin.Default()
+
+	group := router.Group("/v1")
+	{
+		group.POST("/video/add", v1.AddVideoHandler)
+	}
+
+	router.Run()
 }
