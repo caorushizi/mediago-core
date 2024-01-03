@@ -1,51 +1,23 @@
 package main
 
 import (
-	"errors"
-	"flag"
 	"fmt"
-	"mediago/utils"
-	"time"
+
+	v1 "caorushizi.cn/mediago/api/v1"
+	"caorushizi.cn/mediago/config"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	var (
-		err      error
-		name     string
-		videoDir string
-		m3u8Url  string
-		headers  string
-	)
 
-	flag.StringVar(&name, "name", "新影片", "string类型参数")
-	flag.StringVar(&videoDir, "path", "", "string类型参数")
-	flag.StringVar(&m3u8Url, "url", "", "string类型参数")
-	flag.StringVar(&headers, "headers", "", "string类型参数")
+	fmt.Printf("Hello, World!%v\n", config.Config)
 
-	flag.Parse()
+	router := gin.Default()
 
-	if !utils.IsUrl(m3u8Url) {
-		fmt.Printf("参数 url 格式错误\n")
-		time.Sleep(10 * time.Second)
-		panic(errors.New("参数 url 格式错误"))
+	group := router.Group("/v1")
+	{
+		group.POST("/video/add", v1.AddVideoHandler)
 	}
 
-	utils.Headers = headers
-
-	videoDir = utils.NormalizePath(videoDir)
-
-	e := &Engine{}
-
-	params := DownloadParams{
-		Name:    name,
-		Local:   videoDir,
-		Url:     m3u8Url,
-		Decoder: nil,
-	}
-
-	if err = e.Run(params); err != nil {
-		utils.Logger.Error(err)
-		time.Sleep(10 * time.Second)
-		panic(err)
-	}
+	router.Run()
 }
