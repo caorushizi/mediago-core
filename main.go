@@ -4,16 +4,20 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 var (
 	staticPath string
 	videoPath  string
+	port       string
 )
 
 type VideoItem struct {
@@ -50,26 +54,42 @@ func GetVideoListHandler(c *gin.Context) {
 
 func GetVideoHandler(c *gin.Context) {
 	filename := c.Param("filename")
-	fmt.Println(filename)
+
+	// urldecode
+	filename, err := url.QueryUnescape(filename)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid filename",
+		})
+		return
+	}
 
 	c.File(filepath.Join(videoPath, filename))
 }
 
 func main() {
 
-	flag.StringVar(&staticPath, "staticPath", "", "静态资源目录")
-	flag.StringVar(&videoPath, "videoPath", "", "视频文件目录")
+	flag.StringVar(&staticPath, "static-path", "", "静态资源目录")
+	flag.StringVar(&videoPath, "video-path", "", "视频文件目录")
+	flag.StringVar(&port, "port", "8433", "端口号")
 
 	flag.Parse()
 
-	if staticPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: no staticPath provided")
+	if staticPath == "" || videoPath == "" {
+		fmt.Fprintln(os.Stderr, "Error: no \"staticPath\" or \"staticPath\" provided")
 		os.Exit(1)
 	}
 
-	fmt.Printf("Hello, %s!\n", staticPath)
-
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"*"},
+		AllowHeaders:     []string{"*"},
+		ExposeHeaders:    []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	router.GET("/api/video-list", GetVideoListHandler)
 	router.GET("/video/:filename", GetVideoHandler)
@@ -78,5 +98,5 @@ func main() {
 		c.File(staticPath + c.Request.URL.Path)
 	})
 
-	router.Run()
+	router.Run(":" + port)
 }
