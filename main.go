@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -93,9 +94,10 @@ func main() {
 
 	router.GET("/api/video-list", GetVideoListHandler)
 	router.GET("/video/:filename", GetVideoHandler)
+	router.Static("/assets", path.Join(staticPath, "assets"))
 
 	router.NoRoute(func(c *gin.Context) {
-		c.File(staticPath + c.Request.URL.Path)
+		c.File(path.Join(staticPath, "index.html"))
 	})
 
 	router.Run(":" + port)
