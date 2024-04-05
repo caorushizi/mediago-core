@@ -1,4 +1,4 @@
-package main
+package mediago
 
 import (
 	"flag"
