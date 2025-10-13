@@ -4,6 +4,9 @@ package core
 import (
 	"encoding/json"
 	"os"
+
+	"caorushizi.cn/mediago/internal/logger"
+	"go.uber.org/zap"
 )
 
 // ArgSpec 参数规格定义
@@ -45,13 +48,27 @@ func (sl SchemaList) GetByType(t DownloadType) (Schema, bool) {
 
 // LoadSchemasFromJSON 从 JSON 文件加载 Schema 配置
 func LoadSchemasFromJSON(path string) (SchemaList, error) {
+	logger.Debug("Loading schemas from file", zap.String("path", path))
+
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		logger.Error("Failed to read schema file",
+			zap.String("path", path),
+			zap.Error(err))
 		return SchemaList{}, err
 	}
+
 	var sl SchemaList
 	if err := json.Unmarshal(raw, &sl); err != nil {
+		logger.Error("Failed to parse schema JSON",
+			zap.String("path", path),
+			zap.Error(err))
 		return SchemaList{}, err
 	}
+
+	logger.Info("Schemas loaded successfully",
+		zap.String("path", path),
+		zap.Int("count", len(sl.Schemas)))
+
 	return sl, nil
 }

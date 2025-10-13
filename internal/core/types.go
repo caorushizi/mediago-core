@@ -15,6 +15,17 @@ const (
 // TaskID 任务唯一标识符
 type TaskID int64
 
+// TaskStatus 任务状态枚举
+type TaskStatus string
+
+const (
+	StatusPending    TaskStatus = "pending"    // 等待中
+	StatusDownloading TaskStatus = "downloading" // 下载中
+	StatusSuccess    TaskStatus = "success"    // 成功完成
+	StatusFailed     TaskStatus = "failed"     // 失败
+	StatusStopped    TaskStatus = "stopped"    // 已停止
+)
+
 // DownloadParams 下载任务参数
 type DownloadParams struct {
 	ID             TaskID       `json:"id"`             // 任务ID
@@ -41,6 +52,19 @@ type ProgressEvent struct {
 type MessageEvent struct {
 	ID      TaskID `json:"id"`      // 任务ID
 	Message string `json:"message"` // 消息内容
+}
+
+// TaskInfo 任务信息
+type TaskInfo struct {
+	ID             TaskID       `json:"id"`             // 任务ID
+	Type           DownloadType `json:"type"`           // 下载类型
+	URL            string       `json:"url"`            // 下载URL
+	Name           string       `json:"name"`           // 文件名
+	Status         TaskStatus   `json:"status"`         // 任务状态
+	Percent        float64      `json:"percent"`        // 完成百分比
+	Speed          string       `json:"speed"`          // 下载速度
+	IsLive         bool         `json:"isLive"`         // 是否为直播流
+	Error          string       `json:"error,omitempty"` // 错误信息（如果有）
 }
 
 // Callbacks 下载回调函数集合

@@ -10,10 +10,12 @@ import (
 	"sync"
 
 	"caorushizi.cn/mediago/internal/core"
+	"caorushizi.cn/mediago/internal/logger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 )
 
 // Server HTTP 服务器
@@ -53,12 +55,17 @@ func NewServer(queue *core.TaskQueue) *Server {
 
 // setupRoutes 设置路由
 func (s *Server) setupRoutes() {
+	// 健康检查接口
+	s.engine.Any("/healthz", s.healthCheck)
+
 	// Swagger 文档路由
 	s.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := s.engine.Group("/api")
 	{
 		api.POST("/tasks", s.createTask)
+		api.GET("/tasks/:id", s.getTask)
+		api.GET("/tasks", s.getAllTasks)
 		api.POST("/tasks/:id/stop", s.stopTask)
 		api.POST("/config", s.updateConfig)
 		api.GET("/events", s.sseHandler)
@@ -95,23 +102,25 @@ func (s *Server) setupQueueCallbacks() {
 		})
 	})
 
-	s.queue.OnProgress(func(evt core.ProgressEvent) {
-		eventType := "download-progress"
-		if evt.Type == "ready" {
-			eventType = "download-ready"
-		}
-		s.sseHub.Broadcast(SSEEvent{
-			Event: eventType,
-			Data:  evt,
-		})
-	})
+	// 注意：进度更新和消息事件已移除
+	// 客户端应通过轮询 GET /api/tasks/{id} 接口获取实时进度
+}
 
-	s.queue.OnMessage(func(evt core.MessageEvent) {
-		s.sseHub.Broadcast(SSEEvent{
-			Event: "download-message",
-			Data:  evt,
-		})
-	})
+// healthCheck 健康检查接口
+// @Summary 健康检查
+// @Description 服务健康检查接口，用于监控服务是否正常运行
+// @Tags Health
+// @Produce plain
+// @Success 200 {string} string "ok"
+// @Router /healthz [get]
+// @Router /healthz [post]
+// @Router /healthz [put]
+// @Router /healthz [delete]
+// @Router /healthz [patch]
+// @Router /healthz [head]
+// @Router /healthz [options]
+func (s *Server) healthCheck(c *gin.Context) {
+	c.String(http.StatusOK, "ok")
 }
 
 // CreateTaskRequest 创建任务请求
@@ -152,6 +161,9 @@ type ErrorResponse struct {
 func (s *Server) createTask(c *gin.Context) {
 	var params core.DownloadParams
 	if err := c.ShouldBindJSON(&params); err != nil {
+		logger.Warn("Invalid task creation request",
+			zap.String("clientIP", c.ClientIP()),
+			zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -164,12 +176,78 @@ func (s *Server) createTask(c *gin.Context) {
 		s.mu.Unlock()
 	}
 
+	logger.Info("Task creation request received",
+		zap.Int64("id", int64(params.ID)),
+		zap.String("type", string(params.Type)),
+		zap.String("url", params.URL),
+		zap.String("clientIP", c.ClientIP()))
+
 	// 添加到队列
 	s.queue.Enqueue(params)
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":      params.ID,
 		"message": "Task enqueued successfully",
+	})
+}
+
+// getTask 获取单个任务状态
+// @Summary 获取任务状态
+// @Description 获取指定ID的任务状态和进度信息
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path int true "任务ID" example(1)
+// @Success 200 {object} core.TaskInfo "任务信息"
+// @Failure 400 {object} ErrorResponse "无效的任务ID"
+// @Failure 404 {object} ErrorResponse "任务不存在"
+// @Router /tasks/{id} [get]
+func (s *Server) getTask(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		logger.Warn("Invalid task ID in get request",
+			zap.String("id", idStr),
+			zap.String("clientIP", c.ClientIP()))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	task, ok := s.queue.GetTask(core.TaskID(id))
+	if !ok {
+		logger.Warn("Task not found",
+			zap.Int64("id", id),
+			zap.String("clientIP", c.ClientIP()))
+		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		return
+	}
+
+	logger.Debug("Task info retrieved",
+		zap.Int64("id", id),
+		zap.String("status", string(task.Status)),
+		zap.String("clientIP", c.ClientIP()))
+
+	c.JSON(http.StatusOK, task)
+}
+
+// getAllTasks 获取所有任务状态
+// @Summary 获取所有任务状态
+// @Description 获取所有任务的状态和进度信息列表
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Success 200 {array} core.TaskInfo "任务列表"
+// @Router /tasks [get]
+func (s *Server) getAllTasks(c *gin.Context) {
+	tasks := s.queue.GetAllTasks()
+
+	logger.Debug("All tasks info retrieved",
+		zap.Int("count", len(tasks)),
+		zap.String("clientIP", c.ClientIP()))
+
+	c.JSON(http.StatusOK, gin.H{
+		"tasks": tasks,
+		"total": len(tasks),
 	})
 }
 
@@ -193,11 +271,21 @@ func (s *Server) stopTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		logger.Warn("Invalid task ID in stop request",
+			zap.String("id", idStr),
+			zap.String("clientIP", c.ClientIP()))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
+	logger.Info("Stop task request received",
+		zap.Int64("id", id),
+		zap.String("clientIP", c.ClientIP()))
+
 	if err := s.queue.Stop(core.TaskID(id)); err != nil {
+		logger.Warn("Failed to stop task",
+			zap.Int64("id", id),
+			zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
@@ -233,16 +321,26 @@ func (s *Server) updateConfig(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&config); err != nil {
+		logger.Warn("Invalid config update request",
+			zap.String("clientIP", c.ClientIP()),
+			zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	logger.Info("Config update request received",
+		zap.Int("maxRunner", config.MaxRunner),
+		zap.String("proxy", config.Proxy),
+		zap.String("clientIP", c.ClientIP()))
+
 	if config.MaxRunner > 0 {
 		s.queue.SetMaxRunner(config.MaxRunner)
+		logger.Info("Max runner updated", zap.Int("maxRunner", config.MaxRunner))
 	}
 
 	if config.Proxy != "" {
 		s.queue.SetProxy(config.Proxy)
+		logger.Info("Proxy updated", zap.String("proxy", config.Proxy))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Config updated"})
@@ -250,13 +348,16 @@ func (s *Server) updateConfig(c *gin.Context) {
 
 // sseHandler SSE 事件流处理器
 // @Summary SSE 事件流
-// @Description 订阅服务器推送事件（SSE），实时接收下载任务的状态更新
-// @Description 事件类型包括：download-start, download-success, download-failed, download-stop, download-progress, download-ready, download-message
+// @Description 订阅服务器推送事件（SSE），实时接收下载任务的状态变更通知
+// @Description 事件类型包括：download-start（任务开始）, download-success（任务成功）, download-failed（任务失败）, download-stop（任务停止）
+// @Description 注意：不包含进度更新事件，如需获取下载进度，请通过 GET /api/tasks/{id} 接口轮询
 // @Tags Events
 // @Produce text/event-stream
 // @Success 200 {string} string "SSE 事件流"
 // @Router /events [get]
 func (s *Server) sseHandler(c *gin.Context) {
+	logger.Info("SSE client connected", zap.String("clientIP", c.ClientIP()))
+
 	// 设置 SSE 响应头
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -266,12 +367,16 @@ func (s *Server) sseHandler(c *gin.Context) {
 	// 创建客户端通道
 	client := make(chan SSEEvent, 10)
 	s.sseHub.Register(client)
-	defer s.sseHub.Unregister(client)
+	defer func() {
+		s.sseHub.Unregister(client)
+		logger.Info("SSE client disconnected", zap.String("clientIP", c.ClientIP()))
+	}()
 
 	// 获取响应写入器
 	w := c.Writer
 	flusher, ok := w.(http.Flusher)
 	if !ok {
+		logger.Error("SSE streaming not supported")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming not supported"})
 		return
 	}
