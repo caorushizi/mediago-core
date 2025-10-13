@@ -66,7 +66,7 @@ const docTemplate = `{
         },
         "/events": {
             "get": {
-                "description": "订阅服务器推送事件（SSE），实时接收下载任务的状态更新\n事件类型包括：download-start, download-success, download-failed, download-stop, download-progress, download-ready, download-message",
+                "description": "订阅服务器推送事件（SSE），实时接收下载任务的状态变更通知\n事件类型包括：download-start（任务开始）, download-success（任务成功）, download-failed（任务失败）, download-stop（任务停止）\n注意：不包含进度更新事件，如需获取下载进度，请通过 GET /api/tasks/{id} 接口轮询",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -84,7 +84,159 @@ const docTemplate = `{
                 }
             }
         },
+        "/healthz": {
+            "get": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "options": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "head": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks": {
+            "get": {
+                "description": "获取所有任务的状态和进度信息列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "获取所有任务状态",
+                "responses": {
+                    "200": {
+                        "description": "任务列表",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "创建一个新的下载任务并加入队列\n支持 M3U8、Bilibili、Direct 三种下载类型",
                 "consumes": [
@@ -117,6 +269,51 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}": {
+            "get": {
+                "description": "获取指定ID的任务状态和进度信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "获取任务状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务信息",
+                        "schema": {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的任务ID",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "任务不存在",
                         "schema": {
                             "$ref": "#/definitions/internal_api.ErrorResponse"
                         }
@@ -171,6 +368,99 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "caorushizi_cn_mediago_internal_core.DownloadType": {
+            "type": "string",
+            "enum": [
+                "m3u8",
+                "bilibili",
+                "direct"
+            ],
+            "x-enum-varnames": [
+                "TypeM3U8",
+                "TypeBilibili",
+                "TypeDirect"
+            ]
+        },
+        "caorushizi_cn_mediago_internal_core.TaskInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "错误信息（如果有）",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "任务ID",
+                    "type": "integer"
+                },
+                "isLive": {
+                    "description": "是否为直播流",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string"
+                },
+                "percent": {
+                    "description": "完成百分比",
+                    "type": "number"
+                },
+                "speed": {
+                    "description": "下载速度",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "任务状态",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskStatus"
+                        }
+                    ]
+                },
+                "type": {
+                    "description": "下载类型",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.DownloadType"
+                        }
+                    ]
+                },
+                "url": {
+                    "description": "下载URL",
+                    "type": "string"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_core.TaskStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "downloading",
+                "success",
+                "failed",
+                "stopped"
+            ],
+            "x-enum-comments": {
+                "StatusDownloading": "下载中",
+                "StatusFailed": "失败",
+                "StatusPending": "等待中",
+                "StatusStopped": "已停止",
+                "StatusSuccess": "成功完成"
+            },
+            "x-enum-descriptions": [
+                "等待中",
+                "下载中",
+                "成功完成",
+                "失败",
+                "已停止"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusDownloading",
+                "StatusSuccess",
+                "StatusFailed",
+                "StatusStopped"
+            ]
+        },
         "internal_api.CreateTaskRequest": {
             "type": "object",
             "required": [
@@ -294,6 +584,10 @@ const docTemplate = `{
         }
     },
     "tags": [
+        {
+            "description": "健康检查相关接口",
+            "name": "Health"
+        },
         {
             "description": "下载任务管理相关接口",
             "name": "Tasks"

@@ -6,6 +6,9 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"caorushizi.cn/mediago/internal/logger"
+	"go.uber.org/zap"
 )
 
 var (
@@ -17,9 +20,10 @@ type TaskQueue struct {
 	downloader Downloader // 下载器实例
 	maxRunner  int        // 最大并发数
 
-	mu     sync.Mutex                   // 互斥锁
+	mu     sync.RWMutex                 // 读写锁
 	queue  []DownloadParams             // 待执行任务队列
 	active map[TaskID]context.CancelFunc // 活跃任务（任务ID -> 取消函数）
+	tasks  map[TaskID]*TaskInfo         // 任务信息表（任务ID -> 任务信息）
 	proxy  string                       // 全局代理配置
 
 	// 事件回调函数
@@ -37,6 +41,7 @@ func NewTaskQueue(d Downloader, maxRunner int) *TaskQueue {
 		downloader: d,
 		maxRunner:  maxRunner,
 		active:     make(map[TaskID]context.CancelFunc),
+		tasks:      make(map[TaskID]*TaskInfo),
 	}
 }
 
@@ -59,7 +64,26 @@ func (q *TaskQueue) SetMaxRunner(n int) {
 func (q *TaskQueue) Enqueue(p DownloadParams) {
 	q.mu.Lock()
 	q.queue = append(q.queue, p)
+	// 初始化任务信息
+	q.tasks[p.ID] = &TaskInfo{
+		ID:      p.ID,
+		Type:    p.Type,
+		URL:     p.URL,
+		Name:    p.Name,
+		Status:  StatusPending,
+		Percent: 0,
+		Speed:   "",
+		IsLive:  false,
+	}
+	queueLen := len(q.queue)
 	q.mu.Unlock()
+
+	logger.Info("Task enqueued",
+		zap.Int64("id", int64(p.ID)),
+		zap.String("type", string(p.Type)),
+		zap.String("name", p.Name),
+		zap.Int("queueLength", queueLen))
+
 	q.tryRun()
 }
 
@@ -70,9 +94,11 @@ func (q *TaskQueue) Stop(id TaskID) error {
 	q.mu.Unlock()
 
 	if !ok {
+		logger.Warn("Attempted to stop non-existent task", zap.Int64("id", int64(id)))
 		return ErrTaskNotFound
 	}
 
+	logger.Info("Stopping task", zap.Int64("id", int64(id)))
 	// 调用取消函数
 	cancel()
 	return nil
@@ -102,6 +128,17 @@ func (q *TaskQueue) tryRun() {
 
 // execute 执行单个下载任务
 func (q *TaskQueue) execute(p DownloadParams) {
+	logger.Info("Executing task",
+		zap.Int64("id", int64(p.ID)),
+		zap.String("type", string(p.Type)))
+
+	// 更新任务状态为下载中
+	q.mu.Lock()
+	if task, ok := q.tasks[p.ID]; ok {
+		task.Status = StatusDownloading
+	}
+	q.mu.Unlock()
+
 	// 发送开始事件
 	if q.onStart != nil {
 		q.onStart(p.ID)
@@ -114,16 +151,33 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	q.mu.Lock()
 	q.active[p.ID] = cancel
 	proxy := q.proxy
+	activeCount := len(q.active)
 	q.mu.Unlock()
+
+	logger.Debug("Task activated",
+		zap.Int64("id", int64(p.ID)),
+		zap.Int("activeCount", activeCount))
 
 	// 应用全局代理配置
 	if proxy != "" {
 		p.Proxy = proxy
+		logger.Debug("Applied global proxy to task",
+			zap.Int64("id", int64(p.ID)),
+			zap.String("proxy", proxy))
 	}
 
 	// 执行下载
 	err := q.downloader.Download(ctx, p, Callbacks{
 		OnProgress: func(e ProgressEvent) {
+			// 更新任务进度信息
+			q.mu.Lock()
+			if task, ok := q.tasks[p.ID]; ok {
+				task.Percent = e.Percent
+				task.Speed = e.Speed
+				task.IsLive = e.IsLive
+			}
+			q.mu.Unlock()
+
 			if q.onProgress != nil {
 				q.onProgress(e)
 			}
@@ -138,22 +192,49 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	// 从活跃任务表中移除
 	q.mu.Lock()
 	delete(q.active, p.ID)
+	activeCount = len(q.active)
 	q.mu.Unlock()
 
-	// 根据错误类型发送相应事件
+	logger.Debug("Task deactivated",
+		zap.Int64("id", int64(p.ID)),
+		zap.Int("activeCount", activeCount))
+
+	// 根据错误类型发送相应事件并更新任务状态
 	switch {
 	case err == nil:
 		// 成功完成
+		logger.Info("Task completed successfully", zap.Int64("id", int64(p.ID)))
+		q.mu.Lock()
+		if task, ok := q.tasks[p.ID]; ok {
+			task.Status = StatusSuccess
+			task.Percent = 100
+		}
+		q.mu.Unlock()
 		if q.onSuccess != nil {
 			q.onSuccess(p.ID)
 		}
 	case errors.Is(err, context.Canceled):
 		// 被取消
+		logger.Info("Task was stopped", zap.Int64("id", int64(p.ID)))
+		q.mu.Lock()
+		if task, ok := q.tasks[p.ID]; ok {
+			task.Status = StatusStopped
+		}
+		q.mu.Unlock()
 		if q.onStopped != nil {
 			q.onStopped(p.ID)
 		}
 	default:
 		// 失败
+		logger.Error("Task failed",
+			zap.Int64("id", int64(p.ID)),
+			zap.Error(err))
+		q.mu.Lock()
+		if task, ok := q.tasks[p.ID]; ok {
+			task.Status = StatusFailed
+			task.Error = err.Error()
+		}
+		q.mu.Unlock()
 		if q.onFailed != nil {
 			q.onFailed(p.ID, err)
 		}
@@ -187,4 +268,29 @@ func (q *TaskQueue) OnProgress(fn func(ProgressEvent)) {
 
 func (q *TaskQueue) OnMessage(fn func(MessageEvent)) {
 	q.onMessage = fn
+}
+
+// GetTask 获取指定任务的信息
+func (q *TaskQueue) GetTask(id TaskID) (*TaskInfo, bool) {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	task, ok := q.tasks[id]
+	if !ok {
+		return nil, false
+	}
+	// 返回副本，避免外部修改
+	taskCopy := *task
+	return &taskCopy, true
+}
+
+// GetAllTasks 获取所有任务的信息
+func (q *TaskQueue) GetAllTasks() []TaskInfo {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	tasks := make([]TaskInfo, 0, len(q.tasks))
+	for _, task := range q.tasks {
+		tasks = append(tasks, *task)
+	}
+	return tasks
 }

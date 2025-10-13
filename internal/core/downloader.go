@@ -6,6 +6,9 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+
+	"caorushizi.cn/mediago/internal/logger"
+	"go.uber.org/zap"
 )
 
 var (
@@ -122,26 +125,48 @@ func guessExtFromURL(u string) string {
 
 // Download 执行下载任务
 func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callbacks) error {
+	logger.Info("Starting download task",
+		zap.Int64("id", int64(p.ID)),
+		zap.String("type", string(p.Type)),
+		zap.String("url", p.URL),
+		zap.String("name", p.Name))
+
 	// 获取对应下载类型的 Schema
 	schema, ok := d.schemas.GetByType(p.Type)
 	if !ok {
+		logger.Error("Unsupported download type",
+			zap.Int64("id", int64(p.ID)),
+			zap.String("type", string(p.Type)))
 		return ErrUnsupportedType
 	}
 
 	// 获取对应下载类型的可执行文件路径
 	bin, ok := d.binMap[p.Type]
 	if !ok || bin == "" {
+		logger.Error("Binary not found for download type",
+			zap.Int64("id", int64(p.ID)),
+			zap.String("type", string(p.Type)))
 		return ErrBinNotFound
 	}
+
+	logger.Debug("Using downloader binary",
+		zap.Int64("id", int64(p.ID)),
+		zap.String("binary", bin))
 
 	// 创建控制台行解析器
 	lp, err := newLineParser(schema.ConsoleReg)
 	if err != nil {
+		logger.Error("Failed to create line parser",
+			zap.Int64("id", int64(p.ID)),
+			zap.Error(err))
 		return err
 	}
 
 	// 构建命令行参数
 	args := d.buildArgs(p, schema)
+	logger.Debug("Command arguments built",
+		zap.Int64("id", int64(p.ID)),
+		zap.Strings("args", args))
 
 	// 初始化解析状态
 	st := &parseState{}
@@ -157,11 +182,18 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 
 		// 解析控制台输出
 		evt, errStr := lp.parse(line, st)
-		_ = errStr // 错误由底层 Wait 返回，这里仅做提示
+		if errStr != "" {
+			logger.Warn("Parse error in download output",
+				zap.Int64("id", int64(p.ID)),
+				zap.String("error", errStr))
+		}
 
 		// 处理 ready 事件
 		if evt == "ready" {
 			st.ready = true
+			logger.Info("Download ready",
+				zap.Int64("id", int64(p.ID)),
+				zap.Bool("isLive", st.isLive))
 			if cb.OnProgress != nil {
 				cb.OnProgress(ProgressEvent{
 					ID:     p.ID,
@@ -174,6 +206,10 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 		// 处理进度更新（应用节流策略）
 		if st.ready && (st.percent > 0 || st.speed != "") {
 			if cb.OnProgress != nil && d.tracker.shouldUpdate(p.ID, st.percent, st.speed) {
+				logger.Debug("Download progress",
+					zap.Int64("id", int64(p.ID)),
+					zap.Float64("percent", st.percent),
+					zap.String("speed", st.speed))
 				cb.OnProgress(ProgressEvent{
 					ID:      p.ID,
 					Type:    "progress",
@@ -187,10 +223,22 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 	}
 
 	// 执行命令
+	logger.Info("Executing download command",
+		zap.Int64("id", int64(p.ID)),
+		zap.String("binary", bin))
 	err = d.runner.Run(ctx, bin, args, onLine)
 
 	// 清理进度记录
 	d.tracker.remove(p.ID)
 
-	return err
+	if err != nil {
+		logger.Error("Download failed",
+			zap.Int64("id", int64(p.ID)),
+			zap.Error(err))
+		return err
+	}
+
+	logger.Info("Download completed successfully",
+		zap.Int64("id", int64(p.ID)))
+	return nil
 }
