@@ -13,7 +13,7 @@ const (
 )
 
 // TaskID 任务唯一标识符
-type TaskID int64
+type TaskID string
 
 // TaskStatus 任务状态枚举
 type TaskStatus string

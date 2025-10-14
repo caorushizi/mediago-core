@@ -95,6 +95,11 @@ func (s *Server) setupQueueCallbacks() {
 		})
 	})
 
+	// 控制台输出：逐行打印下载器输出到日志（控制台）
+	s.queue.OnMessage(func(m core.MessageEvent) {
+		logger.Infof("[task %s] %s", m.ID, m.Message)
+	})
+
 	s.queue.OnStopped(func(id core.TaskID) {
 		s.sseHub.Broadcast(SSEEvent{
 			Event: "download-stop",
@@ -169,18 +174,18 @@ func (s *Server) createTask(c *gin.Context) {
 	}
 
 	// 如果客户端未提供 ID，自动生成
-	if params.ID == 0 {
-		s.mu.Lock()
-		s.taskSeq++
-		params.ID = core.TaskID(s.taskSeq)
-		s.mu.Unlock()
-	}
+if params.ID == "" {
+    s.mu.Lock()
+    s.taskSeq++
+    params.ID = core.TaskID(strconv.FormatInt(s.taskSeq, 10))
+    s.mu.Unlock()
+}
 
-	logger.Info("Task creation request received",
-		zap.Int64("id", int64(params.ID)),
-		zap.String("type", string(params.Type)),
-		zap.String("url", params.URL),
-		zap.String("clientIP", c.ClientIP()))
+logger.Info("Task creation request received",
+    zap.String("id", string(params.ID)),
+    zap.String("type", string(params.Type)),
+    zap.String("url", params.URL),
+    zap.String("clientIP", c.ClientIP()))
 
 	// 添加到队列
 	s.queue.Enqueue(params)
@@ -203,29 +208,22 @@ func (s *Server) createTask(c *gin.Context) {
 // @Failure 404 {object} ErrorResponse "任务不存在"
 // @Router /tasks/{id} [get]
 func (s *Server) getTask(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		logger.Warn("Invalid task ID in get request",
-			zap.String("id", idStr),
-			zap.String("clientIP", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
-		return
-	}
+    idStr := c.Param("id")
+    // string ID: no parsing required
 
-	task, ok := s.queue.GetTask(core.TaskID(id))
+task, ok := s.queue.GetTask(core.TaskID(idStr))
 	if !ok {
-		logger.Warn("Task not found",
-			zap.Int64("id", id),
-			zap.String("clientIP", c.ClientIP()))
+    logger.Warn("Task not found",
+        zap.String("id", idStr),
+        zap.String("clientIP", c.ClientIP()))
 		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
 		return
 	}
 
-	logger.Debug("Task info retrieved",
-		zap.Int64("id", id),
-		zap.String("status", string(task.Status)),
-		zap.String("clientIP", c.ClientIP()))
+logger.Debug("Task info retrieved",
+    zap.String("id", idStr),
+    zap.String("status", string(task.Status)),
+    zap.String("clientIP", c.ClientIP()))
 
 	c.JSON(http.StatusOK, task)
 }
@@ -268,24 +266,17 @@ type StopTaskResponse struct {
 // @Failure 404 {object} ErrorResponse "任务不存在"
 // @Router /tasks/{id}/stop [post]
 func (s *Server) stopTask(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		logger.Warn("Invalid task ID in stop request",
-			zap.String("id", idStr),
-			zap.String("clientIP", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
-		return
-	}
+    idStr := c.Param("id")
+    // string ID: no parsing required
 
-	logger.Info("Stop task request received",
-		zap.Int64("id", id),
-		zap.String("clientIP", c.ClientIP()))
+logger.Info("Stop task request received",
+    zap.String("id", idStr),
+    zap.String("clientIP", c.ClientIP()))
 
-	if err := s.queue.Stop(core.TaskID(id)); err != nil {
-		logger.Warn("Failed to stop task",
-			zap.Int64("id", id),
-			zap.Error(err))
+if err := s.queue.Stop(core.TaskID(idStr)); err != nil {
+    logger.Warn("Failed to stop task",
+        zap.String("id", idStr),
+        zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
