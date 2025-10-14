@@ -78,11 +78,11 @@ func (q *TaskQueue) Enqueue(p DownloadParams) {
 	queueLen := len(q.queue)
 	q.mu.Unlock()
 
-	logger.Info("Task enqueued",
-		zap.Int64("id", int64(p.ID)),
-		zap.String("type", string(p.Type)),
-		zap.String("name", p.Name),
-		zap.Int("queueLength", queueLen))
+    logger.Info("Task enqueued",
+        zap.String("id", string(p.ID)),
+        zap.String("type", string(p.Type)),
+        zap.String("name", p.Name),
+        zap.Int("queueLength", queueLen))
 
 	q.tryRun()
 }
@@ -93,15 +93,15 @@ func (q *TaskQueue) Stop(id TaskID) error {
 	cancel, ok := q.active[id]
 	q.mu.Unlock()
 
-	if !ok {
-		logger.Warn("Attempted to stop non-existent task", zap.Int64("id", int64(id)))
-		return ErrTaskNotFound
-	}
+    if !ok {
+        logger.Warn("Attempted to stop non-existent task", zap.String("id", string(id)))
+        return ErrTaskNotFound
+    }
 
-	logger.Info("Stopping task", zap.Int64("id", int64(id)))
-	// 调用取消函数
-	cancel()
-	return nil
+    logger.Info("Stopping task", zap.String("id", string(id)))
+    // 调用取消函数
+    cancel()
+    return nil
 }
 
 // tryRun 尝试运行队列中的任务（直到达到并发上限）
@@ -128,9 +128,9 @@ func (q *TaskQueue) tryRun() {
 
 // execute 执行单个下载任务
 func (q *TaskQueue) execute(p DownloadParams) {
-	logger.Info("Executing task",
-		zap.Int64("id", int64(p.ID)),
-		zap.String("type", string(p.Type)))
+    logger.Info("Executing task",
+        zap.String("id", string(p.ID)),
+        zap.String("type", string(p.Type)))
 
 	// 更新任务状态为下载中
 	q.mu.Lock()
@@ -154,17 +154,17 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	activeCount := len(q.active)
 	q.mu.Unlock()
 
-	logger.Debug("Task activated",
-		zap.Int64("id", int64(p.ID)),
-		zap.Int("activeCount", activeCount))
+    logger.Debug("Task activated",
+        zap.String("id", string(p.ID)),
+        zap.Int("activeCount", activeCount))
 
 	// 应用全局代理配置
-	if proxy != "" {
-		p.Proxy = proxy
-		logger.Debug("Applied global proxy to task",
-			zap.Int64("id", int64(p.ID)),
-			zap.String("proxy", proxy))
-	}
+        if proxy != "" {
+            p.Proxy = proxy
+            logger.Debug("Applied global proxy to task",
+                zap.String("id", string(p.ID)),
+                zap.String("proxy", proxy))
+        }
 
 	// 执行下载
 	err := q.downloader.Download(ctx, p, Callbacks{
@@ -195,50 +195,50 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	activeCount = len(q.active)
 	q.mu.Unlock()
 
-	logger.Debug("Task deactivated",
-		zap.Int64("id", int64(p.ID)),
-		zap.Int("activeCount", activeCount))
+    logger.Debug("Task deactivated",
+        zap.String("id", string(p.ID)),
+        zap.Int("activeCount", activeCount))
 
 	// 根据错误类型发送相应事件并更新任务状态
-	switch {
-	case err == nil:
-		// 成功完成
-		logger.Info("Task completed successfully", zap.Int64("id", int64(p.ID)))
-		q.mu.Lock()
-		if task, ok := q.tasks[p.ID]; ok {
-			task.Status = StatusSuccess
-			task.Percent = 100
-		}
-		q.mu.Unlock()
-		if q.onSuccess != nil {
-			q.onSuccess(p.ID)
-		}
-	case errors.Is(err, context.Canceled):
-		// 被取消
-		logger.Info("Task was stopped", zap.Int64("id", int64(p.ID)))
-		q.mu.Lock()
-		if task, ok := q.tasks[p.ID]; ok {
-			task.Status = StatusStopped
-		}
-		q.mu.Unlock()
-		if q.onStopped != nil {
-			q.onStopped(p.ID)
-		}
-	default:
-		// 失败
-		logger.Error("Task failed",
-			zap.Int64("id", int64(p.ID)),
-			zap.Error(err))
-		q.mu.Lock()
-		if task, ok := q.tasks[p.ID]; ok {
-			task.Status = StatusFailed
-			task.Error = err.Error()
-		}
-		q.mu.Unlock()
-		if q.onFailed != nil {
-			q.onFailed(p.ID, err)
-		}
-	}
+    switch {
+    case err == nil:
+        // 成功完成
+        logger.Info("Task completed successfully", zap.String("id", string(p.ID)))
+        q.mu.Lock()
+        if task, ok := q.tasks[p.ID]; ok {
+            task.Status = StatusSuccess
+            task.Percent = 100
+        }
+        q.mu.Unlock()
+        if q.onSuccess != nil {
+            q.onSuccess(p.ID)
+        }
+    case errors.Is(err, context.Canceled):
+        // 被取消
+        logger.Info("Task was stopped", zap.String("id", string(p.ID)))
+        q.mu.Lock()
+        if task, ok := q.tasks[p.ID]; ok {
+            task.Status = StatusStopped
+        }
+        q.mu.Unlock()
+        if q.onStopped != nil {
+            q.onStopped(p.ID)
+        }
+    default:
+        // 失败
+        logger.Error("Task failed",
+            zap.String("id", string(p.ID)),
+            zap.Error(err))
+        q.mu.Lock()
+        if task, ok := q.tasks[p.ID]; ok {
+            task.Status = StatusFailed
+            task.Error = err.Error()
+        }
+        q.mu.Unlock()
+        if q.onFailed != nil {
+            q.onFailed(p.ID, err)
+        }
+    }
 
 	// 短暂延迟后尝试运行下一个任务
 	time.AfterFunc(10*time.Millisecond, q.tryRun)
