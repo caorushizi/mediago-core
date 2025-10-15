@@ -1,0 +1,141 @@
+# MediaGo Downloader - Taskfile (简化版)
+# 安装 Task: https://taskfile.dev/installation/
+version: '3'
+
+vars:
+  APP_NAME: mediago-downloader
+  CMD_PATH: ./cmd/downloader
+  BIN_DIR: ./bin
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+  GO_LDFLAGS: -s -w
+
+env:
+  CGO_ENABLED: 0
+  MEDIAGO_SERVER_ADDR: ":8080"
+  MEDIAGO_SCHEMA_PATH: "./configs/download_schemas.json"
+
+tasks:
+  default:
+    desc: 显示所有可用任务
+    cmds:
+      - task --list
+    silent: true
+
+  # ==================== 开发任务 ====================
+
+  run:
+    desc: 运行服务
+    cmds:
+      - go run {{.CMD_PATH}}
+
+  # ==================== 构建任务 ====================
+
+  build:
+    desc: 编译当前平台
+    sources:
+      - "**/*.go"
+      - go.mod
+    generates:
+      - "{{.BIN_DIR}}/{{.APP_NAME}}*"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}} {{.CMD_PATH}}
+      - echo "✅ 编译成功"
+
+  build:all:
+    desc: 交叉编译所有平台
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=linux GOARCH=amd64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-linux-amd64 {{.CMD_PATH}}
+      - GOOS=darwin GOARCH=amd64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-darwin-amd64 {{.CMD_PATH}}
+      - GOOS=darwin GOARCH=arm64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-darwin-arm64 {{.CMD_PATH}}
+      - GOOS=windows GOARCH=amd64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-windows-amd64.exe {{.CMD_PATH}}
+      - echo "✅ 全平台编译完成"
+
+  # ==================== 测试任务 ====================
+
+  test:
+    desc: 运行测试
+    cmds:
+      - go test -v ./...
+
+  test:coverage:
+    desc: 测试覆盖率报告
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "✅ 覆盖率报告已生成"
+
+  # ==================== 代码质量 ====================
+
+  fmt:
+    desc: 格式化代码
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: 代码检查
+    cmds:
+      - golangci-lint run ./...
+
+  tidy:
+    desc: 整理依赖
+    cmds:
+      - go mod tidy
+
+  # ==================== 清理任务 ====================
+
+  clean:
+    desc: 清理构建产物
+    cmds:
+      - rm -rf {{.BIN_DIR}} coverage.* docs/
+
+  # ==================== Swagger 文档 ====================
+
+  swagger:
+    desc: 生成 Swagger 文档
+    sources:
+      - "cmd/**/*.go"
+      - "internal/**/*.go"
+    generates:
+      - "docs/swagger.json"
+    cmds:
+      - swag init -g cmd/downloader/main.go -o docs --parseDependency --parseInternal
+      - echo "✅ Swagger 文档生成完成"
+
+  swagger:open:
+    desc: 打开 Swagger UI
+    cmds:
+      - echo "📖 http://localhost:8080/swagger/index.html"
+      - |
+        {{if eq OS "windows"}}start http://localhost:8080/swagger/index.html
+        {{else if eq OS "darwin"}}open http://localhost:8080/swagger/index.html
+        {{else}}xdg-open http://localhost:8080/swagger/index.html{{end}}
+
+  # ==================== Docker 任务 ====================
+
+  docker:
+    desc: 构建并运行 Docker
+    cmds:
+      - docker build -t {{.APP_NAME}}:{{.VERSION}} .
+      - docker run -it --rm -p 8080:8080 {{.APP_NAME}}:{{.VERSION}}
+
+  # ==================== 发布任务 ====================
+
+  release:
+    desc: 构建发布版本
+    cmds:
+      - task: clean
+      - task: test
+      - task: build:all
+      - echo "✅ 发布完成"
+
+  # ==================== 辅助任务 ====================
+
+  tools:
+    desc: 安装开发工具
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install github.com/swaggo/swag/cmd/swag@latest
+      - echo "✅ 工具安装完成"
