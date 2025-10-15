@@ -1,0 +1,602 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "MediaGo 多任务下载系统 API 文档\n支持 M3U8、Bilibili、Direct 三种下载类型\n提供任务管理、配置更新、实时事件推送等功能",
+        "title": "MediaGo Downloader API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "https://github.com/caorushizi/mediago-core",
+            "email": "support@mediago.local"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api",
+    "paths": {
+        "/config": {
+            "post": {
+                "description": "更新系统配置，包括最大并发下载数和代理设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "更新系统配置",
+                "parameters": [
+                    {
+                        "description": "配置参数",
+                        "name": "config",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.UpdateConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "配置更新成功",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.UpdateConfigResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events": {
+            "get": {
+                "description": "订阅服务器推送事件（SSE），实时接收下载任务的状态变更通知\n事件类型包括：download-start（任务开始）, download-success（任务成功）, download-failed（任务失败）, download-stop（任务停止）\n注意：不包含进度更新事件，如需获取下载进度，请通过 GET /api/tasks/{id} 接口轮询",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "SSE 事件流",
+                "responses": {
+                    "200": {
+                        "description": "SSE 事件流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/healthz": {
+            "get": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "options": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "head": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "健康检查",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks": {
+            "get": {
+                "description": "获取所有任务的状态和进度信息列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "获取所有任务状态",
+                "responses": {
+                    "200": {
+                        "description": "任务列表",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建一个新的下载任务并加入队列\n支持 M3U8、Bilibili、Direct 三种下载类型",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "创建下载任务",
+                "parameters": [
+                    {
+                        "description": "下载任务参数",
+                        "name": "task",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务创建成功",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateTaskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}": {
+            "get": {
+                "description": "获取指定ID的任务状态和进度信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "获取任务状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务信息",
+                        "schema": {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的任务ID",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "任务不存在",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}/stop": {
+            "post": {
+                "description": "停止指定ID的下载任务",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "停止下载任务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务停止成功",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.StopTaskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的任务ID",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "任务不存在",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "caorushizi_cn_mediago_internal_core.DownloadType": {
+            "type": "string",
+            "enum": [
+                "m3u8",
+                "bilibili",
+                "direct"
+            ],
+            "x-enum-varnames": [
+                "TypeM3U8",
+                "TypeBilibili",
+                "TypeDirect"
+            ]
+        },
+        "caorushizi_cn_mediago_internal_core.TaskInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "错误信息（如果有）",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "任务ID",
+                    "type": "integer"
+                },
+                "isLive": {
+                    "description": "是否为直播流",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string"
+                },
+                "percent": {
+                    "description": "完成百分比",
+                    "type": "number"
+                },
+                "speed": {
+                    "description": "下载速度",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "任务状态",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskStatus"
+                        }
+                    ]
+                },
+                "type": {
+                    "description": "下载类型",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.DownloadType"
+                        }
+                    ]
+                },
+                "url": {
+                    "description": "下载URL",
+                    "type": "string"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_core.TaskStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "downloading",
+                "success",
+                "failed",
+                "stopped"
+            ],
+            "x-enum-comments": {
+                "StatusDownloading": "下载中",
+                "StatusFailed": "失败",
+                "StatusPending": "等待中",
+                "StatusStopped": "已停止",
+                "StatusSuccess": "成功完成"
+            },
+            "x-enum-descriptions": [
+                "等待中",
+                "下载中",
+                "成功完成",
+                "失败",
+                "已停止"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusDownloading",
+                "StatusSuccess",
+                "StatusFailed",
+                "StatusStopped"
+            ]
+        },
+        "internal_api.CreateTaskRequest": {
+            "type": "object",
+            "required": [
+                "localDir",
+                "name",
+                "type",
+                "url"
+            ],
+            "properties": {
+                "deleteSegments": {
+                    "description": "是否删除分段文件",
+                    "type": "boolean",
+                    "example": true
+                },
+                "folder": {
+                    "description": "子文件夹",
+                    "type": "string",
+                    "example": "movies"
+                },
+                "headers": {
+                    "description": "自定义HTTP头",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "User-Agent: Mozilla/5.0"
+                    ]
+                },
+                "id": {
+                    "description": "任务ID（可选，不提供时自动生成）",
+                    "type": "integer",
+                    "example": 1
+                },
+                "localDir": {
+                    "description": "本地保存目录",
+                    "type": "string",
+                    "example": "/downloads"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string",
+                    "example": "video.mp4"
+                },
+                "proxy": {
+                    "description": "代理地址",
+                    "type": "string",
+                    "example": "http://proxy.com:8080"
+                },
+                "type": {
+                    "description": "下载类型：m3u8/bilibili/direct",
+                    "type": "string",
+                    "example": "m3u8"
+                },
+                "url": {
+                    "description": "下载URL",
+                    "type": "string",
+                    "example": "https://example.com/a.m3u8"
+                }
+            }
+        },
+        "internal_api.CreateTaskResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "任务ID",
+                    "type": "integer",
+                    "example": 1
+                },
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Task enqueued successfully"
+                }
+            }
+        },
+        "internal_api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "错误信息",
+                    "type": "string",
+                    "example": "invalid request"
+                }
+            }
+        },
+        "internal_api.StopTaskResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Task stopped"
+                }
+            }
+        },
+        "internal_api.UpdateConfigRequest": {
+            "type": "object",
+            "properties": {
+                "maxRunner": {
+                    "description": "最大并发下载数",
+                    "type": "integer",
+                    "example": 3
+                },
+                "proxy": {
+                    "description": "代理服务器地址",
+                    "type": "string",
+                    "example": "http://proxy.com:8080"
+                }
+            }
+        },
+        "internal_api.UpdateConfigResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Config updated"
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "description": "健康检查相关接口",
+            "name": "Health"
+        },
+        {
+            "description": "下载任务管理相关接口",
+            "name": "Tasks"
+        },
+        {
+            "description": "系统配置相关接口",
+            "name": "Config"
+        },
+        {
+            "description": "实时事件推送相关接口",
+            "name": "Events"
+        }
+    ]
+}
