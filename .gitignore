@@ -27,3 +27,4 @@ dist-ssr
 *.exe
 bin
 .task
+release
