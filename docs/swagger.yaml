@@ -1,74 +1,6 @@
 basePath: /api
 definitions:
-  caorushizi_cn_mediago_internal_core.DownloadType:
-    enum:
-    - m3u8
-    - bilibili
-    - direct
-    type: string
-    x-enum-varnames:
-    - TypeM3U8
-    - TypeBilibili
-    - TypeDirect
-  caorushizi_cn_mediago_internal_core.TaskInfo:
-    properties:
-      error:
-        description: 错误信息（如果有）
-        type: string
-      id:
-        description: 任务ID
-        type: integer
-      isLive:
-        description: 是否为直播流
-        type: boolean
-      name:
-        description: 文件名
-        type: string
-      percent:
-        description: 完成百分比
-        type: number
-      speed:
-        description: 下载速度
-        type: string
-      status:
-        allOf:
-        - $ref: '#/definitions/caorushizi_cn_mediago_internal_core.TaskStatus'
-        description: 任务状态
-      type:
-        allOf:
-        - $ref: '#/definitions/caorushizi_cn_mediago_internal_core.DownloadType'
-        description: 下载类型
-      url:
-        description: 下载URL
-        type: string
-    type: object
-  caorushizi_cn_mediago_internal_core.TaskStatus:
-    enum:
-    - pending
-    - downloading
-    - success
-    - failed
-    - stopped
-    type: string
-    x-enum-comments:
-      StatusDownloading: 下载中
-      StatusFailed: 失败
-      StatusPending: 等待中
-      StatusStopped: 已停止
-      StatusSuccess: 成功完成
-    x-enum-descriptions:
-    - 等待中
-    - 下载中
-    - 成功完成
-    - 失败
-    - 已停止
-    x-enum-varnames:
-    - StatusPending
-    - StatusDownloading
-    - StatusSuccess
-    - StatusFailed
-    - StatusStopped
-  internal_api.CreateTaskRequest:
+  api.CreateTaskRequest:
     properties:
       deleteSegments:
         description: 是否删除分段文件
@@ -115,7 +47,7 @@ definitions:
     - type
     - url
     type: object
-  internal_api.CreateTaskResponse:
+  api.CreateTaskResponse:
     properties:
       id:
         description: 任务ID
@@ -126,21 +58,21 @@ definitions:
         example: Task enqueued successfully
         type: string
     type: object
-  internal_api.ErrorResponse:
+  api.ErrorResponse:
     properties:
       error:
         description: 错误信息
         example: invalid request
         type: string
     type: object
-  internal_api.StopTaskResponse:
+  api.StopTaskResponse:
     properties:
       message:
         description: 响应消息
         example: Task stopped
         type: string
     type: object
-  internal_api.UpdateConfigRequest:
+  api.UpdateConfigRequest:
     properties:
       maxRunner:
         description: 最大并发下载数
@@ -151,13 +83,81 @@ definitions:
         example: http://proxy.com:8080
         type: string
     type: object
-  internal_api.UpdateConfigResponse:
+  api.UpdateConfigResponse:
     properties:
       message:
         description: 响应消息
         example: Config updated
         type: string
     type: object
+  core.DownloadType:
+    enum:
+    - m3u8
+    - bilibili
+    - direct
+    type: string
+    x-enum-varnames:
+    - TypeM3U8
+    - TypeBilibili
+    - TypeDirect
+  core.TaskInfo:
+    properties:
+      error:
+        description: 错误信息（如果有）
+        type: string
+      id:
+        description: 任务ID
+        type: string
+      isLive:
+        description: 是否为直播流
+        type: boolean
+      name:
+        description: 文件名
+        type: string
+      percent:
+        description: 完成百分比
+        type: number
+      speed:
+        description: 下载速度
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/core.TaskStatus'
+        description: 任务状态
+      type:
+        allOf:
+        - $ref: '#/definitions/core.DownloadType'
+        description: 下载类型
+      url:
+        description: 下载URL
+        type: string
+    type: object
+  core.TaskStatus:
+    enum:
+    - pending
+    - downloading
+    - success
+    - failed
+    - stopped
+    type: string
+    x-enum-comments:
+      StatusDownloading: 下载中
+      StatusFailed: 失败
+      StatusPending: 等待中
+      StatusStopped: 已停止
+      StatusSuccess: 成功完成
+    x-enum-descriptions:
+    - 等待中
+    - 下载中
+    - 成功完成
+    - 失败
+    - 已停止
+    x-enum-varnames:
+    - StatusPending
+    - StatusDownloading
+    - StatusSuccess
+    - StatusFailed
+    - StatusStopped
 host: localhost:8080
 info:
   contact:
@@ -186,18 +186,18 @@ paths:
         name: config
         required: true
         schema:
-          $ref: '#/definitions/internal_api.UpdateConfigRequest'
+          $ref: '#/definitions/api.UpdateConfigRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 配置更新成功
           schema:
-            $ref: '#/definitions/internal_api.UpdateConfigResponse'
+            $ref: '#/definitions/api.UpdateConfigResponse'
         "400":
           description: 请求参数错误
           schema:
-            $ref: '#/definitions/internal_api.ErrorResponse'
+            $ref: '#/definitions/api.ErrorResponse'
       summary: 更新系统配置
       tags:
       - Config
@@ -314,7 +314,7 @@ paths:
           description: 任务列表
           schema:
             items:
-              $ref: '#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo'
+              $ref: '#/definitions/core.TaskInfo'
             type: array
       summary: 获取所有任务状态
       tags:
@@ -331,18 +331,18 @@ paths:
         name: task
         required: true
         schema:
-          $ref: '#/definitions/internal_api.CreateTaskRequest'
+          $ref: '#/definitions/api.CreateTaskRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 任务创建成功
           schema:
-            $ref: '#/definitions/internal_api.CreateTaskResponse'
+            $ref: '#/definitions/api.CreateTaskResponse'
         "400":
           description: 请求参数错误
           schema:
-            $ref: '#/definitions/internal_api.ErrorResponse'
+            $ref: '#/definitions/api.ErrorResponse'
       summary: 创建下载任务
       tags:
       - Tasks
@@ -364,15 +364,15 @@ paths:
         "200":
           description: 任务信息
           schema:
-            $ref: '#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo'
+            $ref: '#/definitions/core.TaskInfo'
         "400":
           description: 无效的任务ID
           schema:
-            $ref: '#/definitions/internal_api.ErrorResponse'
+            $ref: '#/definitions/api.ErrorResponse'
         "404":
           description: 任务不存在
           schema:
-            $ref: '#/definitions/internal_api.ErrorResponse'
+            $ref: '#/definitions/api.ErrorResponse'
       summary: 获取任务状态
       tags:
       - Tasks
@@ -394,15 +394,15 @@ paths:
         "200":
           description: 任务停止成功
           schema:
-            $ref: '#/definitions/internal_api.StopTaskResponse'
+            $ref: '#/definitions/api.StopTaskResponse'
         "400":
           description: 无效的任务ID
           schema:
-            $ref: '#/definitions/internal_api.ErrorResponse'
+            $ref: '#/definitions/api.ErrorResponse'
         "404":
           description: 任务不存在
           schema:
-            $ref: '#/definitions/internal_api.ErrorResponse'
+            $ref: '#/definitions/api.ErrorResponse'
       summary: 停止下载任务
       tags:
       - Tasks

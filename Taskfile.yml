@@ -1,6 +1,6 @@
 # MediaGo Downloader - Taskfile (简化版)
 # 安装 Task: https://taskfile.dev/installation/
-version: '3'
+version: "3"
 
 vars:
   APP_NAME: mediago-downloader
@@ -139,3 +139,108 @@ tasks:
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - go install github.com/swaggo/swag/cmd/swag@latest
       - echo "✅ 工具安装完成"
+
+  docs:
+    desc: Generate Swagger documentation
+    cmds:
+      - swag init -g cmd/server/main.go -o docs
+
+  # ========================== npm 发布任务 ====================
+  release:npm:clean:
+    desc: Clean npm release artifacts
+    cmds:
+      - rm -rf release/npm
+      - find npm -type d -name bin -exec rm -rf {} + 2>/dev/null || true
+
+  release:npm:build-binaries:
+    desc: Cross-compile Go binaries for all platforms
+    cmds:
+      - task: release:npm:build-binary
+        vars: { GOOS: darwin, GOARCH: amd64, PLATFORM: darwin-x64 }
+      - task: release:npm:build-binary
+        vars: { GOOS: darwin, GOARCH: arm64, PLATFORM: darwin-arm64 }
+      - task: release:npm:build-binary
+        vars: { GOOS: linux, GOARCH: amd64, PLATFORM: linux-x64 }
+      - task: release:npm:build-binary
+        vars: { GOOS: linux, GOARCH: arm64, PLATFORM: linux-arm64 }
+      - task: release:npm:build-binary
+        vars: { GOOS: windows, GOARCH: amd64, PLATFORM: win32-x64 }
+      - task: release:npm:build-binary
+        vars: { GOOS: windows, GOARCH: arm64, PLATFORM: win32-arm64 }
+
+  release:npm:build-binary:
+    internal: true
+    vars:
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      OUTPUT_DIR: release/npm/{{.PLATFORM}}/bin
+    cmds:
+      - mkdir -p {{.OUTPUT_DIR}}
+      - CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} go build -ldflags="-s -w" -o {{.OUTPUT_DIR}}/mediago-core{{.EXT}} ./cmd/server
+      - echo "Built {{.PLATFORM}} binary"
+
+  release:npm:assemble-packages:
+    desc: Assemble npm packages with metadata
+    deps: [release:npm:build-binaries]
+    cmds:
+      - node scripts/generate-npm-packages.js {{.VERSION}}
+      - task: release:npm:copy-binaries
+      - task: release:npm:set-permissions
+      - echo "Assembled npm packages for version {{.VERSION}}"
+
+  release:npm:copy-binaries:
+    internal: true
+    cmds:
+      - mkdir -p npm/@mediago/core-darwin-x64/bin
+      - cp release/npm/darwin-x64/bin/mediago-core npm/@mediago/core-darwin-x64/bin/
+      - mkdir -p npm/@mediago/core-darwin-arm64/bin
+      - cp release/npm/darwin-arm64/bin/mediago-core npm/@mediago/core-darwin-arm64/bin/
+      - mkdir -p npm/@mediago/core-linux-x64/bin
+      - cp release/npm/linux-x64/bin/mediago-core npm/@mediago/core-linux-x64/bin/
+      - mkdir -p npm/@mediago/core-linux-arm64/bin
+      - cp release/npm/linux-arm64/bin/mediago-core npm/@mediago/core-linux-arm64/bin/
+      - mkdir -p npm/@mediago/core-win32-x64/bin
+      - cp release/npm/win32-x64/bin/mediago-core.exe npm/@mediago/core-win32-x64/bin/
+      - mkdir -p npm/@mediago/core-win32-arm64/bin
+      - cp release/npm/win32-arm64/bin/mediago-core.exe npm/@mediago/core-win32-arm64/bin/
+
+  release:npm:set-permissions:
+    internal: true
+    cmds:
+      - chmod +x npm/@mediago/core-darwin-x64/bin/mediago-core
+      - chmod +x npm/@mediago/core-darwin-arm64/bin/mediago-core
+      - chmod +x npm/@mediago/core-linux-x64/bin/mediago-core
+      - chmod +x npm/@mediago/core-linux-arm64/bin/mediago-core
+
+  release:npm:publish:
+    desc: Publish npm packages (requires PUBLISH=true)
+    cmds:
+      - task: release:npm:verify-publish
+      - cd npm/@mediago/core-darwin-x64 && npm publish --access public
+      - cd npm/@mediago/core-darwin-arm64 && npm publish --access public
+      - cd npm/@mediago/core-linux-x64 && npm publish --access public
+      - cd npm/@mediago/core-linux-arm64 && npm publish --access public
+      - cd npm/@mediago/core-win32-x64 && npm publish --access public
+      - cd npm/@mediago/core-win32-arm64 && npm publish --access public
+      - cd npm/@mediago/core && npm publish --access public
+      - echo "Published version {{.VERSION}} to npm"
+
+  release:npm:verify-publish:
+    internal: true
+    preconditions:
+      - sh: '[ "{{.PUBLISH}}" = "true" ]'
+        msg: "Set PUBLISH=true to publish to npm"
+      - sh: '[ -n "{{.VERSION}}" ]'
+        msg: "VERSION must be set (e.g., VERSION=1.2.3)"
+
+  release:npm:
+    desc: Full npm release pipeline (set VERSION=x.y.z, optionally PUBLISH=true)
+    cmds:
+      - task: release:npm:clean
+      - task: release:npm:assemble-packages
+        vars: { VERSION: '{{.VERSION | default "0.0.0"}}' }
+      - |
+        if [ "{{.PUBLISH}}" = "true" ]; then
+          task release:npm:publish VERSION={{.VERSION}} PUBLISH={{.PUBLISH}}
+        else
+          echo "Dry run completed. Set PUBLISH=true to publish to npm."
+        fi

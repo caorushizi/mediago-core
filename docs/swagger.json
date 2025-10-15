@@ -42,7 +42,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api.UpdateConfigRequest"
+                            "$ref": "#/definitions/api.UpdateConfigRequest"
                         }
                     }
                 ],
@@ -50,13 +50,13 @@
                     "200": {
                         "description": "配置更新成功",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.UpdateConfigResponse"
+                            "$ref": "#/definitions/api.UpdateConfigResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     }
                 }
@@ -229,7 +229,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                                "$ref": "#/definitions/core.TaskInfo"
                             }
                         }
                     }
@@ -254,7 +254,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api.CreateTaskRequest"
+                            "$ref": "#/definitions/api.CreateTaskRequest"
                         }
                     }
                 ],
@@ -262,13 +262,13 @@
                     "200": {
                         "description": "任务创建成功",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.CreateTaskResponse"
+                            "$ref": "#/definitions/api.CreateTaskResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     }
                 }
@@ -301,19 +301,19 @@
                     "200": {
                         "description": "任务信息",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                            "$ref": "#/definitions/core.TaskInfo"
                         }
                     },
                     "400": {
                         "description": "无效的任务ID",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     }
                 }
@@ -346,19 +346,19 @@
                     "200": {
                         "description": "任务停止成功",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.StopTaskResponse"
+                            "$ref": "#/definitions/api.StopTaskResponse"
                         }
                     },
                     "400": {
                         "description": "无效的任务ID",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     }
                 }
@@ -366,100 +366,7 @@
         }
     },
     "definitions": {
-        "caorushizi_cn_mediago_internal_core.DownloadType": {
-            "type": "string",
-            "enum": [
-                "m3u8",
-                "bilibili",
-                "direct"
-            ],
-            "x-enum-varnames": [
-                "TypeM3U8",
-                "TypeBilibili",
-                "TypeDirect"
-            ]
-        },
-        "caorushizi_cn_mediago_internal_core.TaskInfo": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "description": "错误信息（如果有）",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "任务ID",
-                    "type": "integer"
-                },
-                "isLive": {
-                    "description": "是否为直播流",
-                    "type": "boolean"
-                },
-                "name": {
-                    "description": "文件名",
-                    "type": "string"
-                },
-                "percent": {
-                    "description": "完成百分比",
-                    "type": "number"
-                },
-                "speed": {
-                    "description": "下载速度",
-                    "type": "string"
-                },
-                "status": {
-                    "description": "任务状态",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskStatus"
-                        }
-                    ]
-                },
-                "type": {
-                    "description": "下载类型",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.DownloadType"
-                        }
-                    ]
-                },
-                "url": {
-                    "description": "下载URL",
-                    "type": "string"
-                }
-            }
-        },
-        "caorushizi_cn_mediago_internal_core.TaskStatus": {
-            "type": "string",
-            "enum": [
-                "pending",
-                "downloading",
-                "success",
-                "failed",
-                "stopped"
-            ],
-            "x-enum-comments": {
-                "StatusDownloading": "下载中",
-                "StatusFailed": "失败",
-                "StatusPending": "等待中",
-                "StatusStopped": "已停止",
-                "StatusSuccess": "成功完成"
-            },
-            "x-enum-descriptions": [
-                "等待中",
-                "下载中",
-                "成功完成",
-                "失败",
-                "已停止"
-            ],
-            "x-enum-varnames": [
-                "StatusPending",
-                "StatusDownloading",
-                "StatusSuccess",
-                "StatusFailed",
-                "StatusStopped"
-            ]
-        },
-        "internal_api.CreateTaskRequest": {
+        "api.CreateTaskRequest": {
             "type": "object",
             "required": [
                 "localDir",
@@ -520,7 +427,7 @@
                 }
             }
         },
-        "internal_api.CreateTaskResponse": {
+        "api.CreateTaskResponse": {
             "type": "object",
             "properties": {
                 "id": {
@@ -535,7 +442,7 @@
                 }
             }
         },
-        "internal_api.ErrorResponse": {
+        "api.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -545,7 +452,7 @@
                 }
             }
         },
-        "internal_api.StopTaskResponse": {
+        "api.StopTaskResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -555,7 +462,7 @@
                 }
             }
         },
-        "internal_api.UpdateConfigRequest": {
+        "api.UpdateConfigRequest": {
             "type": "object",
             "properties": {
                 "maxRunner": {
@@ -570,7 +477,7 @@
                 }
             }
         },
-        "internal_api.UpdateConfigResponse": {
+        "api.UpdateConfigResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -579,6 +486,99 @@
                     "example": "Config updated"
                 }
             }
+        },
+        "core.DownloadType": {
+            "type": "string",
+            "enum": [
+                "m3u8",
+                "bilibili",
+                "direct"
+            ],
+            "x-enum-varnames": [
+                "TypeM3U8",
+                "TypeBilibili",
+                "TypeDirect"
+            ]
+        },
+        "core.TaskInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "错误信息（如果有）",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "任务ID",
+                    "type": "string"
+                },
+                "isLive": {
+                    "description": "是否为直播流",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string"
+                },
+                "percent": {
+                    "description": "完成百分比",
+                    "type": "number"
+                },
+                "speed": {
+                    "description": "下载速度",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "任务状态",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/core.TaskStatus"
+                        }
+                    ]
+                },
+                "type": {
+                    "description": "下载类型",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/core.DownloadType"
+                        }
+                    ]
+                },
+                "url": {
+                    "description": "下载URL",
+                    "type": "string"
+                }
+            }
+        },
+        "core.TaskStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "downloading",
+                "success",
+                "failed",
+                "stopped"
+            ],
+            "x-enum-comments": {
+                "StatusDownloading": "下载中",
+                "StatusFailed": "失败",
+                "StatusPending": "等待中",
+                "StatusStopped": "已停止",
+                "StatusSuccess": "成功完成"
+            },
+            "x-enum-descriptions": [
+                "等待中",
+                "下载中",
+                "成功完成",
+                "失败",
+                "已停止"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusDownloading",
+                "StatusSuccess",
+                "StatusFailed",
+                "StatusStopped"
+            ]
         }
     },
     "tags": [
