@@ -4,7 +4,7 @@ version: "3"
 
 vars:
   APP_NAME: mediago-downloader
-  CMD_PATH: ./cmd/downloader
+  CMD_PATH: ./cmd/server
   BIN_DIR: ./bin
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
@@ -101,7 +101,7 @@ tasks:
     generates:
       - "docs/swagger.json"
     cmds:
-      - swag init -g cmd/downloader/main.go -o docs --parseDependency --parseInternal
+      - swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
       - echo "✅ Swagger 文档生成完成"
 
   swagger:open:
