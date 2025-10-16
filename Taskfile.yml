@@ -1,4 +1,4 @@
-# MediaGo Downloader - Taskfile (简化版)
+# MediaGo Downloader - Taskfile
 # 安装 Task: https://taskfile.dev/installation/
 version: "3"
 
@@ -6,6 +6,7 @@ vars:
   APP_NAME: mediago-downloader
   CMD_PATH: ./cmd/server
   BIN_DIR: ./bin
+  RELEASE_DIR: ./release
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
   GO_LDFLAGS: -s -w
@@ -22,199 +23,304 @@ tasks:
       - task --list
     silent: true
 
-  # ==================== 开发任务 ====================
+  # ============================================================
+  # 开发环境任务 (Development Tasks)
+  # ============================================================
 
-  run:
-    desc: 运行服务
+  dev:
+    desc: 【开发】启动开发服务器
     cmds:
       - go run {{.CMD_PATH}}
 
-  # ==================== 构建任务 ====================
+  dev:watch:
+    desc: 【开发】启动开发服务器（带热重载）
+    cmds:
+      - |
+        {{if eq OS "windows"}}
+          echo "Windows下请手动重启服务"
+          go run {{.CMD_PATH}}
+        {{else}}
+          command -v air >/dev/null 2>&1 || go install github.com/cosmtrek/air@latest
+          air
+        {{end}}
 
-  build:
-    desc: 编译当前平台
+  dev:build:
+    desc: 【开发】快速编译当前平台（用于本地测试）
     sources:
       - "**/*.go"
       - go.mod
     generates:
       - "{{.BIN_DIR}}/{{.APP_NAME}}*"
     cmds:
-      - mkdir -p {{.BIN_DIR}}
+      - task: _mkdir
+        vars: { DIR: "{{.BIN_DIR}}" }
       - go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}} {{.CMD_PATH}}
-      - echo "✅ 编译成功"
+      - echo "✅ 开发版本编译成功 -> {{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}"
 
-  build:all:
-    desc: 交叉编译所有平台
-    cmds:
-      - mkdir -p {{.BIN_DIR}}
-      - GOOS=linux GOARCH=amd64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-linux-amd64 {{.CMD_PATH}}
-      - GOOS=darwin GOARCH=amd64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-darwin-amd64 {{.CMD_PATH}}
-      - GOOS=darwin GOARCH=arm64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-darwin-arm64 {{.CMD_PATH}}
-      - GOOS=windows GOARCH=amd64 go build -ldflags "{{.GO_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-windows-amd64.exe {{.CMD_PATH}}
-      - echo "✅ 全平台编译完成"
-
-  # ==================== 测试任务 ====================
-
-  test:
-    desc: 运行测试
+  dev:test:
+    desc: 【开发】运行所有测试
     cmds:
       - go test -v ./...
 
-  test:coverage:
-    desc: 测试覆盖率报告
+  dev:test:unit:
+    desc: 【开发】运行单元测试（快速）
+    cmds:
+      - go test -short -v ./...
+
+  dev:test:coverage:
+    desc: 【开发】生成测试覆盖率报告
     cmds:
       - go test -coverprofile=coverage.out ./...
       - go tool cover -html=coverage.out -o coverage.html
-      - echo "✅ 覆盖率报告已生成"
+      - echo "✅ 覆盖率报告 coverage.html"
 
-  # ==================== 代码质量 ====================
-
-  fmt:
-    desc: 格式化代码
+  dev:fmt:
+    desc: 【开发】格式化代码
     cmds:
       - go fmt ./...
+      - echo "✅ 代码格式化完成"
 
-  lint:
-    desc: 代码检查
+  dev:lint:
+    desc: 【开发】代码静态检查
     cmds:
-      - golangci-lint run ./...
+      - |
+        {{if eq OS "windows"}}
+          where golangci-lint >nul 2>&1 || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        {{else}}
+          command -v golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        {{end}}
+        golangci-lint run ./...
 
-  tidy:
-    desc: 整理依赖
+  dev:tidy:
+    desc: 【开发】整理并清理 Go 模块依赖
     cmds:
       - go mod tidy
+      - echo "✅ 依赖整理完成"
 
-  # ==================== 清理任务 ====================
-
-  clean:
-    desc: 清理构建产物
-    cmds:
-      - rm -rf {{.BIN_DIR}} coverage.* docs/
-
-  # ==================== Swagger 文档 ====================
-
-  swagger:
-    desc: 生成 Swagger 文档
+  dev:swagger:
+    desc: 【开发】生成 Swagger API 文档
     sources:
       - "cmd/**/*.go"
       - "internal/**/*.go"
     generates:
       - "docs/swagger.json"
     cmds:
-      - swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
-      - echo "✅ Swagger 文档生成完成"
+      - |
+        {{if eq OS "windows"}}
+          where swag >nul 2>&1 || go install github.com/swaggo/swag/cmd/swag@latest
+        {{else}}
+          command -v swag >/dev/null 2>&1 || go install github.com/swaggo/swag/cmd/swag@latest
+        {{end}}
+        swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
+        echo "✅ Swagger 文档生成完成"
 
-  swagger:open:
-    desc: 打开 Swagger UI
+  dev:swagger:open:
+    desc: 【开发】打开 Swagger UI
     cmds:
-      - echo "📖 http://localhost:8080/swagger/index.html"
+      - echo "📖 Swagger UI http://localhost:8080/swagger/index.html"
       - |
         {{if eq OS "windows"}}start http://localhost:8080/swagger/index.html
         {{else if eq OS "darwin"}}open http://localhost:8080/swagger/index.html
         {{else}}xdg-open http://localhost:8080/swagger/index.html{{end}}
 
-  # ==================== Docker 任务 ====================
-
-  docker:
-    desc: 构建并运行 Docker
+  dev:docker:
+    desc: 【开发】构建并运行 Docker 容器
     cmds:
       - docker build -t {{.APP_NAME}}:{{.VERSION}} .
       - docker run -it --rm -p 8080:8080 {{.APP_NAME}}:{{.VERSION}}
 
-  # ==================== 发布任务 ====================
-
-  release:
-    desc: 构建发布版本
-    cmds:
-      - task: clean
-      - task: test
-      - task: build:all
-      - echo "✅ 发布完成"
-
-  # ==================== 辅助任务 ====================
-
-  tools:
-    desc: 安装开发工具
+  dev:tools:
+    desc: 【开发】安装所有开发工具
     cmds:
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - go install github.com/swaggo/swag/cmd/swag@latest
-      - echo "✅ 工具安装完成"
+      - go install github.com/cosmtrek/air@latest
+      - echo "✅ 开发工具安装完成"
 
-  docs:
-    desc: Generate Swagger documentation
+  dev:clean:
+    desc: 【开发】清理开发环境产物
     cmds:
-      - swag init -g cmd/server/main.go -o docs
+      - task: _rmrf
+        vars: { PATH: "{{.BIN_DIR}}" }
+      - task: _rmrf
+        vars: { PATH: "coverage.out" }
+      - task: _rmrf
+        vars: { PATH: "coverage.html" }
+      - task: _rmrf
+        vars: { PATH: "docs/swagger.json" }
+      - task: _rmrf
+        vars: { PATH: "docs/swagger.yaml" }
+      - echo "✅ 开发环境清理完成"
 
-  # ========================== npm 发布任务 ====================
-  release:npm:clean:
-    desc: Clean npm release artifacts
+  dev:check:
+    desc: 【开发】代码质量全面检查（格式化 + 测试 + 静态检查）
     cmds:
-      - rm -rf release/npm
-      - find npm -type d -name bin -exec rm -rf {} + 2>/dev/null || true
+      - task: dev:fmt
+      - task: dev:lint
+      - task: dev:test:unit
+      - echo "✅ 代码质量检查全部通过"
 
-  release:npm:build-binaries:
-    desc: Cross-compile Go binaries for all platforms
+  # ============================================================
+  # 发布环境任务 (Release/Production Tasks)
+  # ============================================================
+
+  release:build:
+    desc: 【发布】构建所有平台的二进制文件
     cmds:
-      - task: release:npm:build-binary
-        vars: { GOOS: darwin, GOARCH: amd64, PLATFORM: darwin-x64 }
-      - task: release:npm:build-binary
-        vars: { GOOS: darwin, GOARCH: arm64, PLATFORM: darwin-arm64 }
-      - task: release:npm:build-binary
-        vars: { GOOS: linux, GOARCH: amd64, PLATFORM: linux-x64 }
-      - task: release:npm:build-binary
-        vars: { GOOS: linux, GOARCH: arm64, PLATFORM: linux-arm64 }
-      - task: release:npm:build-binary
-        vars: { GOOS: windows, GOARCH: amd64, PLATFORM: win32-x64 }
-      - task: release:npm:build-binary
-        vars: { GOOS: windows, GOARCH: arm64, PLATFORM: win32-arm64 }
+      - task: _mkdir
+        vars: { DIR: "{{.BIN_DIR}}" }
+      - task: release:build:binary
+        vars: { GOOS: linux, GOARCH: amd64 }
+      - task: release:build:binary
+        vars: { GOOS: linux, GOARCH: arm64 }
+      - task: release:build:binary
+        vars: { GOOS: darwin, GOARCH: amd64 }
+      - task: release:build:binary
+        vars: { GOOS: darwin, GOARCH: arm64 }
+      - task: release:build:binary
+        vars: { GOOS: windows, GOARCH: amd64 }
+      - task: release:build:binary
+        vars: { GOOS: windows, GOARCH: arm64 }
+      - echo "✅ 全平台二进制文件编译完成"
 
-  release:npm:build-binary:
+  release:build:binary:
     internal: true
     vars:
       EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
-      OUTPUT_DIR: release/npm/{{.PLATFORM}}/bin
+      OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-{{.GOOS}}-{{.GOARCH}}{{.EXT}}'
     cmds:
-      - mkdir -p {{.OUTPUT_DIR}}
-      - CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} go build -ldflags="-s -w" -o {{.OUTPUT_DIR}}/mediago-core{{.EXT}} ./cmd/server
-      - echo "Built {{.PLATFORM}} binary"
+      - CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} go build -ldflags="{{.GO_LDFLAGS}}" -o {{.OUTPUT}} {{.CMD_PATH}}
+      - echo "✓ {{.GOOS}}/{{.GOARCH}}"
 
-  release:npm:assemble-packages:
-    desc: Assemble npm packages with metadata
-    deps: [release:npm:build-binaries]
+  release:test:
+    desc: 【发布】运行完整测试套件
+    cmds:
+      - go test -race -timeout 10m ./...
+      - echo "✅ 完整测试通过"
+
+  release:clean:
+    desc: 【发布】清理所有发布产物
+    cmds:
+      - task: _rmrf
+        vars: { PATH: "{{.BIN_DIR}}" }
+      - task: _rmrf
+        vars: { PATH: "{{.RELEASE_DIR}}" }
+      - echo "✅ 发布产物清理完成"
+
+  release:prepare:
+    desc: 【发布】发布前准备（清理 + 测试 + 构建）
+    cmds:
+      - task: release:clean
+      - task: dev:tidy
+      - task: release:test
+      - task: release:build
+      - echo "✅ 发布准备完成"
+
+  # ============================================================
+  # NPM 发布任务 (NPM Release Pipeline)
+  # ============================================================
+
+  release:npm:clean:
+    desc: 【NPM】清理 NPM 发布产物
+    cmds:
+      - task: _rmrf
+        vars: { PATH: "{{.RELEASE_DIR}}/npm" }
+      - |
+        {{if eq OS "windows"}}
+          for /d /r npm %d in (bin) do @if exist "%d" rd /s /q "%d"
+        {{else}}
+          find npm -type d -name bin -exec rm -rf {} + 2>/dev/null || true
+        {{end}}
+      - echo "✅ NPM 发布产物清理完成"
+
+  release:npm:build:
+    desc: 【NPM】构建所有平台的 NPM 包二进制文件
+    cmds:
+      - task: release:npm:build:binary
+        vars: { GOOS: darwin, GOARCH: amd64, PLATFORM: darwin-x64 }
+      - task: release:npm:build:binary
+        vars: { GOOS: darwin, GOARCH: arm64, PLATFORM: darwin-arm64 }
+      - task: release:npm:build:binary
+        vars: { GOOS: linux, GOARCH: amd64, PLATFORM: linux-x64 }
+      - task: release:npm:build:binary
+        vars: { GOOS: linux, GOARCH: arm64, PLATFORM: linux-arm64 }
+      - task: release:npm:build:binary
+        vars: { GOOS: windows, GOARCH: amd64, PLATFORM: win32-x64 }
+      - task: release:npm:build:binary
+        vars: { GOOS: windows, GOARCH: arm64, PLATFORM: win32-arm64 }
+      - echo "✅ NPM 所有平台二进制文件构建完成"
+
+  release:npm:build:binary:
+    internal: true
+    vars:
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      OUTPUT_DIR: '{{.RELEASE_DIR}}/npm/{{.PLATFORM}}/bin'
+    cmds:
+      - task: _mkdir
+        vars: { DIR: "{{.OUTPUT_DIR}}" }
+      - CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} go build -ldflags="{{.GO_LDFLAGS}}" -o {{.OUTPUT_DIR}}/mediago-core{{.EXT}} {{.CMD_PATH}}
+      - echo "✓ NPM {{.PLATFORM}}"
+
+  release:npm:assemble:
+    desc: 【NPM】组装 NPM 包（生成 package.json 并复制二进制文件）
+    deps: [release:npm:build]
     cmds:
       - node scripts/generate-npm-packages.js {{.VERSION}}
-      - task: release:npm:copy-binaries
-      - task: release:npm:set-permissions
-      - echo "Assembled npm packages for version {{.VERSION}}"
+      - task: release:npm:copy
+      - task: release:npm:permissions
+      - echo "✅ NPM 包组装完成 (版本{{.VERSION}})"
 
-  release:npm:copy-binaries:
+  release:npm:copy:
     internal: true
     cmds:
-      - mkdir -p npm/@mediago/core-darwin-x64/bin
-      - cp release/npm/darwin-x64/bin/mediago-core npm/@mediago/core-darwin-x64/bin/
-      - mkdir -p npm/@mediago/core-darwin-arm64/bin
-      - cp release/npm/darwin-arm64/bin/mediago-core npm/@mediago/core-darwin-arm64/bin/
-      - mkdir -p npm/@mediago/core-linux-x64/bin
-      - cp release/npm/linux-x64/bin/mediago-core npm/@mediago/core-linux-x64/bin/
-      - mkdir -p npm/@mediago/core-linux-arm64/bin
-      - cp release/npm/linux-arm64/bin/mediago-core npm/@mediago/core-linux-arm64/bin/
-      - mkdir -p npm/@mediago/core-win32-x64/bin
-      - cp release/npm/win32-x64/bin/mediago-core.exe npm/@mediago/core-win32-x64/bin/
-      - mkdir -p npm/@mediago/core-win32-arm64/bin
-      - cp release/npm/win32-arm64/bin/mediago-core.exe npm/@mediago/core-win32-arm64/bin/
+      - task: _mkdir
+        vars: { DIR: "npm/@mediago/core-darwin-x64/bin" }
+      - task: _cp
+        vars: { SRC: "{{.RELEASE_DIR}}/npm/darwin-x64/bin/mediago-core", DST: "npm/@mediago/core-darwin-x64/bin/" }
+      - task: _mkdir
+        vars: { DIR: "npm/@mediago/core-darwin-arm64/bin" }
+      - task: _cp
+        vars: { SRC: "{{.RELEASE_DIR}}/npm/darwin-arm64/bin/mediago-core", DST: "npm/@mediago/core-darwin-arm64/bin/" }
+      - task: _mkdir
+        vars: { DIR: "npm/@mediago/core-linux-x64/bin" }
+      - task: _cp
+        vars: { SRC: "{{.RELEASE_DIR}}/npm/linux-x64/bin/mediago-core", DST: "npm/@mediago/core-linux-x64/bin/" }
+      - task: _mkdir
+        vars: { DIR: "npm/@mediago/core-linux-arm64/bin" }
+      - task: _cp
+        vars: { SRC: "{{.RELEASE_DIR}}/npm/linux-arm64/bin/mediago-core", DST: "npm/@mediago/core-linux-arm64/bin/" }
+      - task: _mkdir
+        vars: { DIR: "npm/@mediago/core-win32-x64/bin" }
+      - task: _cp
+        vars: { SRC: "{{.RELEASE_DIR}}/npm/win32-x64/bin/mediago-core.exe", DST: "npm/@mediago/core-win32-x64/bin/" }
+      - task: _mkdir
+        vars: { DIR: "npm/@mediago/core-win32-arm64/bin" }
+      - task: _cp
+        vars: { SRC: "{{.RELEASE_DIR}}/npm/win32-arm64/bin/mediago-core.exe", DST: "npm/@mediago/core-win32-arm64/bin/" }
 
-  release:npm:set-permissions:
+  release:npm:permissions:
     internal: true
     cmds:
-      - chmod +x npm/@mediago/core-darwin-x64/bin/mediago-core
-      - chmod +x npm/@mediago/core-darwin-arm64/bin/mediago-core
-      - chmod +x npm/@mediago/core-linux-x64/bin/mediago-core
-      - chmod +x npm/@mediago/core-linux-arm64/bin/mediago-core
+      - |
+        {{if ne OS "windows"}}
+          chmod +x npm/@mediago/core-darwin-x64/bin/mediago-core
+          chmod +x npm/@mediago/core-darwin-arm64/bin/mediago-core
+          chmod +x npm/@mediago/core-linux-x64/bin/mediago-core
+          chmod +x npm/@mediago/core-linux-arm64/bin/mediago-core
+        {{end}}
+
+  release:npm:verify:
+    internal: true
+    preconditions:
+      - sh: '[ "{{.PUBLISH}}" = "true" ]'
+        msg: "⚠️  必须设置 PUBLISH=true 才能发布到 NPM"
+      - sh: '[ -n "{{.VERSION}}" ]'
+        msg: "⚠️  必须设置 VERSION (例如: VERSION=1.2.3)"
 
   release:npm:publish:
-    desc: Publish npm packages (requires PUBLISH=true)
+    desc: 【NPM】发布 NPM 包到 NPM Registry（需要 PUBLISH=true）
     cmds:
-      - task: release:npm:verify-publish
+      - task: release:npm:verify
       - cd npm/@mediago/core-darwin-x64 && npm publish --access public
       - cd npm/@mediago/core-darwin-arm64 && npm publish --access public
       - cd npm/@mediago/core-linux-x64 && npm publish --access public
@@ -222,25 +328,78 @@ tasks:
       - cd npm/@mediago/core-win32-x64 && npm publish --access public
       - cd npm/@mediago/core-win32-arm64 && npm publish --access public
       - cd npm/@mediago/core && npm publish --access public
-      - echo "Published version {{.VERSION}} to npm"
-
-  release:npm:verify-publish:
-    internal: true
-    preconditions:
-      - sh: '[ "{{.PUBLISH}}" = "true" ]'
-        msg: "Set PUBLISH=true to publish to npm"
-      - sh: '[ -n "{{.VERSION}}" ]'
-        msg: "VERSION must be set (e.g., VERSION=1.2.3)"
+      - echo "✅ NPM 包发布成功 (版本{{.VERSION}})"
 
   release:npm:
-    desc: Full npm release pipeline (set VERSION=x.y.z, optionally PUBLISH=true)
+    desc: 【NPM】完整 NPM 发布流程（设置 VERSION=x.y.z 和可选的 PUBLISH=true）
     cmds:
       - task: release:npm:clean
-      - task: release:npm:assemble-packages
+      - task: release:npm:assemble
         vars: { VERSION: '{{.VERSION | default "0.0.0"}}' }
       - |
-        if [ "{{.PUBLISH}}" = "true" ]; then
+        {{if eq .PUBLISH "true"}}
           task release:npm:publish VERSION={{.VERSION}} PUBLISH={{.PUBLISH}}
-        else
-          echo "Dry run completed. Set PUBLISH=true to publish to npm."
-        fi
+        {{else}}
+          echo "🔍 试运行完成。设置 PUBLISH=true 以发布到 NPM。"
+          echo "📦 NPM 包已准备就绪在 npm/@mediago/"
+        {{end}}
+
+  release:npm:dry-run:
+    desc: 【NPM】NPM 发布演练（不实际发布）
+    cmds:
+      - task: release:npm
+        vars: { VERSION: '{{.VERSION | default "0.0.0"}}', PUBLISH: "false" }
+
+  # ============================================================
+  # 快捷命令 (Shortcuts)
+  # ============================================================
+
+  run:
+    desc: 运行服务（dev 的别名）
+    cmds:
+      - task: dev
+
+  build:
+    desc: 构建当前平台（dev:build 的别名）
+    cmds:
+      - task: dev:build
+
+  test:
+    desc: 运行测试（dev:test 的别名）
+    cmds:
+      - task: dev:test
+
+  clean:
+    desc: 清理所有产物
+    cmds:
+      - task: dev:clean
+      - task: release:clean
+      - task: release:npm:clean
+
+  # ============================================================
+  # 内部辅助任务 (Internal Helpers)
+  # ============================================================
+
+  _mkdir:
+    internal: true
+    platforms: [linux, darwin, windows]
+    cmds:
+      - mkdir -p {{.DIR}}
+
+  _rmrf:
+    internal: true
+    platforms: [linux, darwin, windows]
+    cmds:
+      - defer: { task: _ignore_error }
+      - rm -rf {{.PATH}}
+
+  _cp:
+    internal: true
+    platforms: [linux, darwin, windows]
+    cmds:
+      - cp {{.SRC}} {{.DST}}
+
+  _ignore_error:
+    internal: true
+    cmds:
+      - exit 0
