@@ -1,6 +1,6 @@
 {
   "name": "@mediago/core-linux-arm64",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "MediaGo Player binary for linux arm64",
   "os": [
     "linux"
@@ -12,7 +12,7 @@
     "mediago-core": "files/mediago-core"
   },
   "files": [
-    "files/mediago-core"
+    "files"
   ],
   "license": "ISC"
 }
