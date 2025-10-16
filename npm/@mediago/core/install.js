@@ -64,7 +64,7 @@ function setupBinary() {
 
   // Find the platform-specific package
   const platformPkgDir = findPlatformPackage(platform);
-  const sourceBinary = path.join(platformPkgDir, 'files', binaryName);
+  const sourceBinary = path.join(platformPkgDir, 'files');
 
   // Check if source binary exists
   if (!fs.existsSync(sourceBinary)) {
@@ -75,7 +75,7 @@ function setupBinary() {
   // Create bin directory in the root package
   const rootDir = __dirname;
   const binDir = path.join(rootDir, 'files');
-  const targetBinary = path.join(binDir, isWindows ? 'mediago-core.exe' : 'mediago-core');
+  const targetBinary = path.join(binDir);
 
   // Create bin directory if it doesn't exist
   if (!fs.existsSync(binDir)) {
@@ -83,13 +83,13 @@ function setupBinary() {
   }
 
   // Remove existing binary if it exists
-  if (fs.existsSync(targetBinary)) {
-    fs.unlinkSync(targetBinary);
-  }
+  // if (fs.existsSync(targetBinary)) {
+  //   fs.unlinkSync(targetBinary);
+  // }
 
   // On Windows, copy the binary; on Unix, create a symlink
   if (isWindows) {
-    fs.copyFileSync(sourceBinary, targetBinary);
+    fs.cpSync(sourceBinary, targetBinary, { recursive: true });
     console.log(`Copied binary from ${sourceBinary}`);
   } else {
     // Create relative symlink
