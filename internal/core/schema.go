@@ -11,7 +11,7 @@ import (
 
 // ArgSpec 参数规格定义
 type ArgSpec struct {
-	ArgsName []string `json:"argsName"`       // 命令行参数名列表
+	ArgsName []string `json:"argsName"`          // 命令行参数名列表
 	Postfix  string   `json:"postfix,omitempty"` // 后缀（如 @@AUTO@@ 表示自动推断扩展名）
 }
 

@@ -130,20 +130,20 @@ func (s *Server) healthCheck(c *gin.Context) {
 
 // CreateTaskRequest 创建任务请求
 type CreateTaskRequest struct {
-	ID             int64  `json:"id" example:"1"`                                            // 任务ID（可选，不提供时自动生成）
-	Type           string `json:"type" binding:"required" example:"m3u8"`                    // 下载类型：m3u8/bilibili/direct
-	URL            string `json:"url" binding:"required" example:"https://example.com/a.m3u8"` // 下载URL
-	LocalDir       string `json:"localDir" binding:"required" example:"/downloads"`          // 本地保存目录
-	Name           string `json:"name" binding:"required" example:"video.mp4"`               // 文件名
-	DeleteSegments bool   `json:"deleteSegments" example:"true"`                             // 是否删除分段文件
-	Headers        []string `json:"headers" example:"User-Agent: Mozilla/5.0"`              // 自定义HTTP头
-	Proxy          string `json:"proxy" example:"http://proxy.com:8080"`                     // 代理地址
-	Folder         string `json:"folder" example:"movies"`                                   // 子文件夹
+	ID             int64    `json:"id" example:"1"`                                              // 任务ID（可选，不提供时自动生成）
+	Type           string   `json:"type" binding:"required" example:"m3u8"`                      // 下载类型：m3u8/bilibili/direct
+	URL            string   `json:"url" binding:"required" example:"https://example.com/a.m3u8"` // 下载URL
+	LocalDir       string   `json:"localDir" binding:"required" example:"/downloads"`            // 本地保存目录
+	Name           string   `json:"name" binding:"required" example:"video.mp4"`                 // 文件名
+	DeleteSegments bool     `json:"deleteSegments" example:"true"`                               // 是否删除分段文件
+	Headers        []string `json:"headers" example:"User-Agent: Mozilla/5.0"`                   // 自定义HTTP头
+	Proxy          string   `json:"proxy" example:"http://proxy.com:8080"`                       // 代理地址
+	Folder         string   `json:"folder" example:"movies"`                                     // 子文件夹
 }
 
 // CreateTaskResponse 创建任务响应
 type CreateTaskResponse struct {
-	ID      int64  `json:"id" example:"1"`                     // 任务ID
+	ID      int64  `json:"id" example:"1"`                               // 任务ID
 	Message string `json:"message" example:"Task enqueued successfully"` // 响应消息
 }
 
@@ -174,18 +174,18 @@ func (s *Server) createTask(c *gin.Context) {
 	}
 
 	// 如果客户端未提供 ID，自动生成
-if params.ID == "" {
-    s.mu.Lock()
-    s.taskSeq++
-    params.ID = core.TaskID(strconv.FormatInt(s.taskSeq, 10))
-    s.mu.Unlock()
-}
+	if params.ID == "" {
+		s.mu.Lock()
+		s.taskSeq++
+		params.ID = core.TaskID(strconv.FormatInt(s.taskSeq, 10))
+		s.mu.Unlock()
+	}
 
-logger.Info("Task creation request received",
-    zap.String("id", string(params.ID)),
-    zap.String("type", string(params.Type)),
-    zap.String("url", params.URL),
-    zap.String("clientIP", c.ClientIP()))
+	logger.Info("Task creation request received",
+		zap.String("id", string(params.ID)),
+		zap.String("type", string(params.Type)),
+		zap.String("url", params.URL),
+		zap.String("clientIP", c.ClientIP()))
 
 	// 添加到队列
 	s.queue.Enqueue(params)
@@ -208,22 +208,22 @@ logger.Info("Task creation request received",
 // @Failure 404 {object} ErrorResponse "任务不存在"
 // @Router /tasks/{id} [get]
 func (s *Server) getTask(c *gin.Context) {
-    idStr := c.Param("id")
-    // string ID: no parsing required
+	idStr := c.Param("id")
+	// string ID: no parsing required
 
-task, ok := s.queue.GetTask(core.TaskID(idStr))
+	task, ok := s.queue.GetTask(core.TaskID(idStr))
 	if !ok {
-    logger.Warn("Task not found",
-        zap.String("id", idStr),
-        zap.String("clientIP", c.ClientIP()))
+		logger.Warn("Task not found",
+			zap.String("id", idStr),
+			zap.String("clientIP", c.ClientIP()))
 		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
 		return
 	}
 
-logger.Debug("Task info retrieved",
-    zap.String("id", idStr),
-    zap.String("status", string(task.Status)),
-    zap.String("clientIP", c.ClientIP()))
+	logger.Debug("Task info retrieved",
+		zap.String("id", idStr),
+		zap.String("status", string(task.Status)),
+		zap.String("clientIP", c.ClientIP()))
 
 	c.JSON(http.StatusOK, task)
 }
@@ -266,17 +266,17 @@ type StopTaskResponse struct {
 // @Failure 404 {object} ErrorResponse "任务不存在"
 // @Router /tasks/{id}/stop [post]
 func (s *Server) stopTask(c *gin.Context) {
-    idStr := c.Param("id")
-    // string ID: no parsing required
+	idStr := c.Param("id")
+	// string ID: no parsing required
 
-logger.Info("Stop task request received",
-    zap.String("id", idStr),
-    zap.String("clientIP", c.ClientIP()))
+	logger.Info("Stop task request received",
+		zap.String("id", idStr),
+		zap.String("clientIP", c.ClientIP()))
 
-if err := s.queue.Stop(core.TaskID(idStr)); err != nil {
-    logger.Warn("Failed to stop task",
-        zap.String("id", idStr),
-        zap.Error(err))
+	if err := s.queue.Stop(core.TaskID(idStr)); err != nil {
+		logger.Warn("Failed to stop task",
+			zap.String("id", idStr),
+			zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
@@ -286,7 +286,7 @@ if err := s.queue.Stop(core.TaskID(idStr)); err != nil {
 
 // UpdateConfigRequest 更新配置请求
 type UpdateConfigRequest struct {
-	MaxRunner int    `json:"maxRunner" example:"3"` // 最大并发下载数
+	MaxRunner int    `json:"maxRunner" example:"3"`                 // 最大并发下载数
 	Proxy     string `json:"proxy" example:"http://proxy.com:8080"` // 代理服务器地址
 }
 
