@@ -1,5 +1,5 @@
-// Package core 命令执行与输出读取实现
-package core
+// Package runner 命令执行与输出读取实现
+package runner
 
 import (
 	"bufio"

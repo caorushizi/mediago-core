@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"caorushizi.cn/mediago/internal/core/parser"
+	"caorushizi.cn/mediago/internal/core/schema"
 	"caorushizi.cn/mediago/internal/logger"
 	"go.uber.org/zap"
 )
@@ -20,22 +22,22 @@ var (
 type DownloaderSvc struct {
 	binMap  map[DownloadType]string // 下载类型到可执行文件路径的映射
 	runner  Runner                  // 命令执行器
-	schemas SchemaList              // Schema 配置列表
-	tracker *progressTracker        // 进度节流器
+	schemas schema.SchemaList       // Schema 配置列表
+	tracker *parser.ProgressTracker // 进度节流器
 }
 
 // NewDownloader 创建下载器服务实例
-func NewDownloader(binMap map[DownloadType]string, runner Runner, schemas SchemaList) *DownloaderSvc {
+func NewDownloader(binMap map[DownloadType]string, runner Runner, schemas schema.SchemaList) *DownloaderSvc {
 	return &DownloaderSvc{
 		binMap:  binMap,
 		runner:  runner,
 		schemas: schemas,
-		tracker: newTracker(),
+		tracker: parser.NewTracker(),
 	}
 }
 
 // buildArgs 根据 Schema 构建命令行参数
-func (d *DownloaderSvc) buildArgs(p DownloadParams, s Schema) []string {
+func (d *DownloaderSvc) buildArgs(p DownloadParams, s schema.Schema) []string {
 	var out []string
 
 	// pushKV 辅助函数：将键值对展开到参数列表
@@ -132,7 +134,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 		zap.String("name", p.Name))
 
 	// 获取对应下载类型的 Schema
-	schema, ok := d.schemas.GetByType(p.Type)
+	schema, ok := d.schemas.GetByType(string(p.Type))
 	if !ok {
 		logger.Error("Unsupported download type",
 			zap.String("id", string(p.ID)),
@@ -154,7 +156,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 		zap.String("binary", bin))
 
 	// 创建控制台行解析器
-	lp, err := newLineParser(schema.ConsoleReg)
+	lp, err := parser.NewLineParser(schema.ConsoleReg)
 	if err != nil {
 		logger.Error("Failed to create line parser",
 			zap.String("id", string(p.ID)),
@@ -169,7 +171,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 		zap.Strings("args", args))
 
 	// 初始化解析状态
-	st := &parseState{}
+	st := &parser.ParseState{}
 
 	// 逐行处理控制台输出
 	onLine := func(line string) {
@@ -181,7 +183,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 		}
 
 		// 解析控制台输出
-		evt, errStr := lp.parse(line, st)
+		evt, errStr := lp.Parse(line, st)
 		if errStr != "" {
 			logger.Warn("Parse error in download output",
 				zap.String("id", string(p.ID)),
@@ -190,34 +192,34 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 
 		// 处理 ready 事件
 		if evt == "ready" {
-			st.ready = true
+			st.Ready = true
 			logger.Info("Download ready",
 				zap.String("id", string(p.ID)),
-				zap.Bool("isLive", st.isLive))
+				zap.Bool("isLive", st.IsLive))
 			if cb.OnProgress != nil {
 				cb.OnProgress(ProgressEvent{
 					ID:     p.ID,
 					Type:   "ready",
-					IsLive: st.isLive,
+					IsLive: st.IsLive,
 				})
 			}
 		}
 
 		// 处理进度更新（应用节流策略）
-		if st.ready && (st.percent > 0 || st.speed != "") {
-			if cb.OnProgress != nil && d.tracker.shouldUpdate(p.ID, st.percent, st.speed) {
+		if st.Ready && (st.Percent > 0 || st.Speed != "") {
+			if cb.OnProgress != nil && d.tracker.ShouldUpdate(parser.TaskID(p.ID), st.Percent, st.Speed) {
 				logger.Debug("Download progress",
 					zap.String("id", string(p.ID)),
-					zap.Float64("percent", st.percent),
-					zap.String("speed", st.speed))
+					zap.Float64("percent", st.Percent),
+					zap.String("speed", st.Speed))
 				cb.OnProgress(ProgressEvent{
 					ID:      p.ID,
 					Type:    "progress",
-					Percent: st.percent,
-					Speed:   st.speed,
-					IsLive:  st.isLive,
+					Percent: st.Percent,
+					Speed:   st.Speed,
+					IsLive:  st.IsLive,
 				})
-				d.tracker.update(p.ID, st.percent, st.speed)
+				d.tracker.Update(parser.TaskID(p.ID), st.Percent, st.Speed)
 			}
 		}
 	}
@@ -229,7 +231,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 	err = d.runner.Run(ctx, bin, args, onLine)
 
 	// 清理进度记录
-	d.tracker.remove(p.ID)
+	d.tracker.Remove(parser.TaskID(p.ID))
 
 	if err != nil {
 		logger.Error("Download failed",
