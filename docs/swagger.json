@@ -6,7 +6,7 @@
     "swagger": "2.0",
     "info": {
         "description": "MediaGo 多任务下载系统 API 文档\n支持 M3U8、Bilibili、Direct 三种下载类型\n提供任务管理、配置更新、实时事件推送等功能",
-        "title": "MediaGo Downloader API",
+        "title": "MediaGo Core API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",

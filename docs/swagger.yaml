@@ -172,7 +172,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   termsOfService: http://swagger.io/terms/
-  title: MediaGo Downloader API
+  title: MediaGo Core API
   version: "1.0"
 paths:
   /config:

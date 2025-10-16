@@ -1,20 +1,48 @@
-# MediaGo Downloader - Taskfile
+# MediaGo core - Taskfile
 # 安装 Task: https://taskfile.dev/installation/
 version: "3"
 
 vars:
-  APP_NAME: mediago-downloader
+  APP_NAME: mediago-core
   CMD_PATH: ./cmd/server
   BIN_DIR: ./bin
   RELEASE_DIR: ./release
+  TOOLS_BIN_DIR: .bin
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
   GO_LDFLAGS: -s -w
+  # 自动检测平台和架构
+  PLATFORM:
+    sh: |
+      case "{{OS}}" in
+        windows) echo "win32" ;;
+        darwin) echo "darwin" ;;
+        linux) echo "linux" ;;
+        *) echo "{{OS}}" ;;
+      esac
+  ARCH:
+    sh: |
+      case "{{ARCH}}" in
+        amd64) echo "x64" ;;
+        arm64) echo "arm64" ;;
+        *) echo "{{ARCH}}" ;;
+      esac
+  # 下载器二进制文件路径（根据平台自动设置）
+  M3U8_BIN_PATH: '{{.TOOLS_BIN_DIR}}/{{.PLATFORM}}/{{.ARCH}}/N_m3u8DL-RE{{if eq OS "windows"}}.exe{{end}}'
+  BILIBILI_BIN_PATH: '{{.TOOLS_BIN_DIR}}/{{.PLATFORM}}/{{.ARCH}}/BBDown{{if eq OS "windows"}}.exe{{end}}'
+  DIRECT_BIN_PATH: '{{.TOOLS_BIN_DIR}}/{{.PLATFORM}}/{{.ARCH}}/gopeed{{if eq OS "windows"}}.exe{{end}}'
 
 env:
   CGO_ENABLED: 0
   MEDIAGO_SERVER_ADDR: ":8080"
   MEDIAGO_SCHEMA_PATH: "./configs/download_schemas.json"
+  # 自动设置下载器二进制文件路径
+  MEDIAGO_M3U8_BIN: '{{.M3U8_BIN_PATH}}'
+  MEDIAGO_BILIBILI_BIN: '{{.BILIBILI_BIN_PATH}}'
+  MEDIAGO_DIRECT_BIN: '{{.DIRECT_BIN_PATH}}'
+  # 日志配置
+  MEDIAGO_LOG_LEVEL: '{{.MEDIAGO_LOG_LEVEL | default "info"}}'
+  MEDIAGO_LOG_DIR: '{{.MEDIAGO_LOG_DIR | default "./logs"}}'
 
 tasks:
   default:
@@ -31,6 +59,33 @@ tasks:
     desc: 【开发】启动开发服务器
     cmds:
       - go run {{.CMD_PATH}}
+
+  dev:env:
+    desc: 【开发】显示当前环境变量配置
+    cmds:
+      - echo "========================================="
+      - echo "  MediaGo 环境配置"
+      - echo "========================================="
+      - echo "平台 {{OS}}/{{ARCH}} (映射为 {{.PLATFORM}}/{{.ARCH}})"
+      - echo ""
+      - echo "二进制文件路径"
+      - echo "  M3U8 下载器    {{.M3U8_BIN_PATH}}"
+      - echo "  Bilibili 下载器 {{.BILIBILI_BIN_PATH}}"
+      - echo "  直接下载器     {{.DIRECT_BIN_PATH}}"
+      - echo ""
+      - echo "文件存在检查"
+      - task: _check_file
+        vars: { FILE: "{{.M3U8_BIN_PATH}}", NAME: "M3U8 下载器" }
+      - task: _check_file
+        vars: { FILE: "{{.BILIBILI_BIN_PATH}}", NAME: "Bilibili 下载器" }
+      - task: _check_file
+        vars: { FILE: "{{.DIRECT_BIN_PATH}}", NAME: "直接下载器" }
+      - echo ""
+      - echo "其他配置"
+      - echo "  服务器地址 {{.MEDIAGO_SERVER_ADDR}}"
+      - echo "  日志级别   {{.MEDIAGO_LOG_LEVEL | default "info"}}"
+      - echo "  日志目录   {{.MEDIAGO_LOG_DIR | default "./logs"}}"
+      - echo "========================================="
 
   dev:watch:
     desc: 【开发】启动开发服务器（带热重载）
@@ -165,7 +220,7 @@ tasks:
   # ============================================================
 
   release:build:
-    desc: 【发布】构建所有平台的二进制文件
+    desc: 【发布】构建所有平台的二进制文件（仅编译，不打包工具）
     cmds:
       - task: _mkdir
         vars: { DIR: "{{.BIN_DIR}}" }
@@ -192,6 +247,206 @@ tasks:
       - CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} go build -ldflags="{{.GO_LDFLAGS}}" -o {{.OUTPUT}} {{.CMD_PATH}}
       - echo "✓ {{.GOOS}}/{{.GOARCH}}"
 
+  release:package:
+    desc: 【发布】打包所有平台的完整发布包（包含下载器工具）
+    cmds:
+      - task: release:clean
+      - task: release:build
+      - echo "📦 开始打包各平台发布包..."
+      - task: release:package:platform
+        vars: { GOOS: linux, GOARCH: amd64, PLATFORM: linux, ARCH: x64 }
+      - task: release:package:platform
+        vars: { GOOS: linux, GOARCH: arm64, PLATFORM: linux, ARCH: arm64 }
+      - task: release:package:platform
+        vars: { GOOS: darwin, GOARCH: amd64, PLATFORM: darwin, ARCH: x64 }
+      - task: release:package:platform
+        vars: { GOOS: darwin, GOARCH: arm64, PLATFORM: darwin, ARCH: arm64 }
+      - task: release:package:platform
+        vars: { GOOS: windows, GOARCH: amd64, PLATFORM: win32, ARCH: x64 }
+      - task: release:package:platform
+        vars: { GOOS: windows, GOARCH: arm64, PLATFORM: win32, ARCH: arm64 }
+      - echo "✅ 所有平台发布包打包完成"
+      - echo "📦 发布包位置 {{.RELEASE_DIR}}/packages/"
+      - task: release:package:list
+
+  release:package:platform:
+    internal: true
+    vars:
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      PKG_NAME: '{{.APP_NAME}}-{{.GOOS}}-{{.GOARCH}}'
+      PKG_DIR: '{{.RELEASE_DIR}}/packages/{{.PKG_NAME}}'
+      TOOLS_SRC: '{{.TOOLS_BIN_DIR}}/{{.PLATFORM}}/{{.ARCH}}'
+    cmds:
+      # 创建发布包目录结构
+      - task: _mkdir
+        vars: { DIR: "{{.PKG_DIR}}" }
+      - task: _mkdir
+        vars: { DIR: "{{.PKG_DIR}}/bin" }
+      - task: _mkdir
+        vars: { DIR: "{{.PKG_DIR}}/configs" }
+      - task: _mkdir
+        vars: { DIR: "{{.PKG_DIR}}/logs" }
+
+      # 复制主程序
+      - task: _cp
+        vars:
+          SRC: "{{.BIN_DIR}}/{{.PKG_NAME}}{{.EXT}}"
+          DST: "{{.PKG_DIR}}/{{.APP_NAME}}{{.EXT}}"
+
+      # 复制下载器工具
+      - task: _cp_dir
+        vars:
+          SRC: "{{.TOOLS_SRC}}"
+          DST: "{{.PKG_DIR}}/bin"
+
+      # 复制配置文件
+      - task: _cp
+        vars:
+          SRC: "configs/download_schemas.json"
+          DST: "{{.PKG_DIR}}/configs/"
+
+      # 创建启动脚本和说明文件
+      - task: release:package:create_readme
+        vars:
+          PKG_DIR: "{{.PKG_DIR}}"
+          GOOS: "{{.GOOS}}"
+          EXT: "{{.EXT}}"
+
+      # 设置可执行权限（非 Windows）
+      - task: release:package:set_permissions
+        vars:
+          PKG_DIR: "{{.PKG_DIR}}"
+          GOOS: "{{.GOOS}}"
+
+      - echo "✓ {{.GOOS}}/{{.GOARCH}} 发布包已打包"
+
+  release:package:create_readme:
+    internal: true
+    silent: true
+    cmds:
+      - |
+        cat > "{{.PKG_DIR}}/README.txt" << 'EOF'
+        MediaGo core - 发布包说明
+        =====================================
+
+        目录结构:
+          mediago-core{{.EXT}}   - 主程序
+          bin/                          - 下载器工具目录
+            ├── N_m3u8DL-RE{{.EXT}}     - M3U8 下载器
+            ├── BBDown{{.EXT}}          - Bilibili 下载器
+            ├── gopeed{{.EXT}}          - 直接下载器
+            └── ffmpeg{{.EXT}}          - FFmpeg (如果存在)
+          configs/                      - 配置文件目录
+            └── download_schemas.json   - 下载配置
+          logs/                         - 日志目录
+
+        使用方法:
+          {{if eq .GOOS "windows"}}
+          1. 双击运行 mediago-core.exe
+          2. 或在命令行中运行: mediago-core.exe
+          {{else}}
+          1. 在终端中运行: ./mediago-core
+          2. 或使用启动脚本: ./start.sh
+          {{end}}
+
+        环境变量配置:
+          程序会自动使用 bin/ 目录下的下载器工具。
+          如需自定义配置，可设置以下环境变量:
+            - MEDIAGO_M3U8_BIN       M3U8 下载器路径
+            - MEDIAGO_BILIBILI_BIN   Bilibili 下载器路径
+            - MEDIAGO_DIRECT_BIN     直接下载器路径
+            - MEDIAGO_LOG_LEVEL      日志级别 (debug/info/warn/error)
+            - MEDIAGO_LOG_DIR        日志目录路径
+            - MEDIAGO_SERVER_ADDR    服务器监听地址 (默认 :8080)
+
+        更多信息请访问: https://github.com/caorushizi/mediago
+        EOF
+      - |
+        {{if ne .GOOS "windows"}}
+        cat > "{{.PKG_DIR}}/start.sh" << 'EOF'
+        #!/bin/bash
+        # MediaGo core 启动脚本
+
+        # 获取脚本所在目录
+        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+        cd "$DIR"
+
+        # 设置环境变量
+        export MEDIAGO_M3U8_BIN="$DIR/bin/N_m3u8DL-RE"
+        export MEDIAGO_BILIBILI_BIN="$DIR/bin/BBDown"
+        export MEDIAGO_DIRECT_BIN="$DIR/bin/gopeed"
+        export MEDIAGO_SCHEMA_PATH="$DIR/configs/download_schemas.json"
+        export MEDIAGO_LOG_DIR="$DIR/logs"
+
+        # 启动程序
+        echo "正在启动 MediaGo core..."
+        ./mediago-core
+        EOF
+        chmod +x "{{.PKG_DIR}}/start.sh"
+        {{end}}
+
+  release:package:set_permissions:
+    internal: true
+    silent: true
+    cmds:
+      - |
+        {{if ne .GOOS "windows"}}
+        chmod +x "{{.PKG_DIR}}/mediago-core"
+        chmod +x "{{.PKG_DIR}}/bin/"* 2>/dev/null || true
+        {{end}}
+
+  release:package:list:
+    internal: true
+    silent: true
+    cmds:
+      - |
+        echo ""
+        echo "发布包列表:"
+        {{if eq OS "windows"}}
+        dir /B "{{.RELEASE_DIR}}\packages" 2>nul || echo "无发布包"
+        {{else}}
+        ls -1 "{{.RELEASE_DIR}}/packages" 2>/dev/null || echo "无发布包"
+        {{end}}
+        echo ""
+        echo "打包完成的文件位于 {{.RELEASE_DIR}}/packages/"
+
+  release:package:zip:
+    desc: 【发布】将发布包压缩为 zip 文件
+    cmds:
+      - echo "🗜️  正在压缩发布包..."
+      - task: release:package:zip:platform
+        vars: { GOOS: linux, GOARCH: amd64 }
+      - task: release:package:zip:platform
+        vars: { GOOS: linux, GOARCH: arm64 }
+      - task: release:package:zip:platform
+        vars: { GOOS: darwin, GOARCH: amd64 }
+      - task: release:package:zip:platform
+        vars: { GOOS: darwin, GOARCH: arm64 }
+      - task: release:package:zip:platform
+        vars: { GOOS: windows, GOARCH: amd64 }
+      - task: release:package:zip:platform
+        vars: { GOOS: windows, GOARCH: arm64 }
+      - echo "✅ 所有发布包已压缩"
+      - echo "📦 压缩包位置在 {{.RELEASE_DIR}}/archives/"
+
+  release:package:zip:platform:
+    internal: true
+    vars:
+      PKG_NAME: '{{.APP_NAME}}-{{.GOOS}}-{{.GOARCH}}'
+      PKG_DIR: '{{.RELEASE_DIR}}/packages/{{.PKG_NAME}}'
+      ARCHIVE_DIR: '{{.RELEASE_DIR}}/archives'
+    cmds:
+      - task: _mkdir
+        vars: { DIR: "{{.ARCHIVE_DIR}}" }
+      - |
+        cd "{{.RELEASE_DIR}}/packages" && \
+        {{if eq OS "windows"}}
+        powershell -Command "Compress-Archive -Path '{{.PKG_NAME}}' -DestinationPath '../archives/{{.PKG_NAME}}.zip' -Force"
+        {{else}}
+        zip -r "../archives/{{.PKG_NAME}}.zip" "{{.PKG_NAME}}"
+        {{end}}
+      - echo "✓ {{.PKG_NAME}}.zip"
+
   release:test:
     desc: 【发布】运行完整测试套件
     cmds:
@@ -208,13 +463,16 @@ tasks:
       - echo "✅ 发布产物清理完成"
 
   release:prepare:
-    desc: 【发布】发布前准备（清理 + 测试 + 构建）
+    desc: 【发布】完整发布流程（测试 + 构建 + 打包 + 压缩）
     cmds:
       - task: release:clean
       - task: dev:tidy
       - task: release:test
-      - task: release:build
-      - echo "✅ 发布准备完成"
+      - task: release:package
+      - task: release:package:zip
+      - echo "✅ 完整发布流程完成"
+      - echo "📦 发布包位置 {{.RELEASE_DIR}}/packages/"
+      - echo "🗜️  压缩包位置 {{.RELEASE_DIR}}/archives/"
 
   # ============================================================
   # NPM 发布任务 (NPM Release Pipeline)
@@ -225,12 +483,7 @@ tasks:
     cmds:
       - task: _rmrf
         vars: { PATH: "{{.RELEASE_DIR}}/npm" }
-      - |
-        {{if eq OS "windows"}}
-          for /d /r npm %d in (bin) do @if exist "%d" rd /s /q "%d"
-        {{else}}
-          find npm -type d -name bin -exec rm -rf {} + 2>/dev/null || true
-        {{end}}
+      - task: _clean_npm_bins
       - echo "✅ NPM 发布产物清理完成"
 
   release:npm:build:
@@ -263,7 +516,7 @@ tasks:
 
   release:npm:assemble:
     desc: 【NPM】组装 NPM 包（生成 package.json 并复制二进制文件）
-    deps: [release:npm:build]
+    deps: [release:package]
     cmds:
       - node scripts/generate-npm-packages.js {{.VERSION}}
       - task: release:npm:copy
@@ -274,39 +527,39 @@ tasks:
     internal: true
     cmds:
       - task: _mkdir
-        vars: { DIR: "npm/@mediago/core-darwin-x64/bin" }
+        vars: { DIR: "npm/@mediago/core-darwin-x64/files" }
       - task: _cp
-        vars: { SRC: "{{.RELEASE_DIR}}/npm/darwin-x64/bin/mediago-core", DST: "npm/@mediago/core-darwin-x64/bin/" }
+        vars: { SRC: "{{.RELEASE_DIR}}/packages/mediago-core-darwin-amd64/*", DST: "npm/@mediago/core-darwin-x64/files/" }
       - task: _mkdir
-        vars: { DIR: "npm/@mediago/core-darwin-arm64/bin" }
+        vars: { DIR: "npm/@mediago/core-darwin-arm64/files" }
       - task: _cp
-        vars: { SRC: "{{.RELEASE_DIR}}/npm/darwin-arm64/bin/mediago-core", DST: "npm/@mediago/core-darwin-arm64/bin/" }
+        vars: { SRC: "{{.RELEASE_DIR}}/packages/mediago-core-darwin-arm64/*", DST: "npm/@mediago/core-darwin-arm64/files/" }
       - task: _mkdir
-        vars: { DIR: "npm/@mediago/core-linux-x64/bin" }
+        vars: { DIR: "npm/@mediago/core-linux-x64/files" }
       - task: _cp
-        vars: { SRC: "{{.RELEASE_DIR}}/npm/linux-x64/bin/mediago-core", DST: "npm/@mediago/core-linux-x64/bin/" }
+        vars: { SRC: "{{.RELEASE_DIR}}/packages/mediago-core-linux-amd64/*", DST: "npm/@mediago/core-linux-x64/files/" }
       - task: _mkdir
-        vars: { DIR: "npm/@mediago/core-linux-arm64/bin" }
+        vars: { DIR: "npm/@mediago/core-linux-arm64/files" }
       - task: _cp
-        vars: { SRC: "{{.RELEASE_DIR}}/npm/linux-arm64/bin/mediago-core", DST: "npm/@mediago/core-linux-arm64/bin/" }
+        vars: { SRC: "{{.RELEASE_DIR}}/packages/mediago-core-linux-arm64/*", DST: "npm/@mediago/core-linux-arm64/files/" }
       - task: _mkdir
-        vars: { DIR: "npm/@mediago/core-win32-x64/bin" }
+        vars: { DIR: "npm/@mediago/core-win32-x64/files" }
       - task: _cp
-        vars: { SRC: "{{.RELEASE_DIR}}/npm/win32-x64/bin/mediago-core.exe", DST: "npm/@mediago/core-win32-x64/bin/" }
+        vars: { SRC: "{{.RELEASE_DIR}}/packages/mediago-core-windows-amd64/*", DST: "npm/@mediago/core-win32-x64/files/" }
       - task: _mkdir
-        vars: { DIR: "npm/@mediago/core-win32-arm64/bin" }
+        vars: { DIR: "npm/@mediago/core-win32-arm64/files" }
       - task: _cp
-        vars: { SRC: "{{.RELEASE_DIR}}/npm/win32-arm64/bin/mediago-core.exe", DST: "npm/@mediago/core-win32-arm64/bin/" }
+        vars: { SRC: "{{.RELEASE_DIR}}/packages/mediago-core-windows-arm64/*", DST: "npm/@mediago/core-win32-arm64/files/" }
 
   release:npm:permissions:
     internal: true
     cmds:
       - |
         {{if ne OS "windows"}}
-          chmod +x npm/@mediago/core-darwin-x64/bin/mediago-core
-          chmod +x npm/@mediago/core-darwin-arm64/bin/mediago-core
-          chmod +x npm/@mediago/core-linux-x64/bin/mediago-core
-          chmod +x npm/@mediago/core-linux-arm64/bin/mediago-core
+          chmod -R +x npm/@mediago/core-darwin-x64/files
+          chmod -R +x npm/@mediago/core-darwin-arm64/files
+          chmod -R +x npm/@mediago/core-linux-x64/files
+          chmod -R +x npm/@mediago/core-linux-arm64/files
         {{end}}
 
   release:npm:verify:
@@ -397,7 +650,36 @@ tasks:
     internal: true
     platforms: [linux, darwin, windows]
     cmds:
-      - cp {{.SRC}} {{.DST}}
+      - cp -r {{.SRC}} {{.DST}}
+
+  _cp_dir:
+    internal: true
+    platforms: [linux, darwin, windows]
+    cmds:
+      - cp -r {{.SRC}}/* {{.DST}}/
+
+  _check_file:
+    internal: true
+    platforms: [linux, darwin, windows]
+    silent: true
+    cmds:
+      - |
+        if [ -f "{{.FILE}}" ]; then
+          echo "  ✓ {{.NAME}} 存在"
+        else
+          echo "  ✗ {{.NAME}} 不存在"
+        fi
+
+  _clean_npm_bins:
+    internal: true
+    platforms: [linux, darwin, windows]
+    cmds:
+      - |
+        for dir in npm/@mediago/*/bin; do
+          if [ -d "$dir" ]; then
+            rm -rf "$dir"
+          fi
+        done || true
 
   _ignore_error:
     internal: true

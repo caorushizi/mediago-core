@@ -1,6 +1,6 @@
 {
   "name": "@mediago/core-darwin-x64",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MediaGo Player binary for darwin x64",
   "os": [
     "darwin"
@@ -9,10 +9,10 @@
     "x64"
   ],
   "bin": {
-    "mediago-core": "bin/mediago-core"
+    "mediago-core": "files/mediago-core"
   },
   "files": [
-    "bin/mediago-core"
+    "files/mediago-core"
   ],
   "license": "ISC"
 }
