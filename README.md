@@ -1,4 +1,4 @@
-# MediaGo Downloader
+# MediaGo core
 
 > 多任务下载系统 - Go (Gin) 实现
 
@@ -8,7 +8,7 @@
 
 - **[快速开始（5 分钟）](QUICKSTART.md)** - 新手必读
 - **[Taskfile 使用指南](TASKFILE_GUIDE.md)** ⭐ - 推荐构建工具
-- **[完整使用文档](README_DOWNLOADER.md)** - API 与配置详解
+- **[完整使用文档](README_core.md)** - API 与配置详解
 - **[最终交付总结](FINAL_SUMMARY.md)** - 项目概览
 
 ### 🔧 技术文档
@@ -45,7 +45,7 @@ task build
 go mod tidy
 
 # 运行服务
-go run ./cmd/downloader
+go run ./cmd/core
 ```
 
 ### Docker 部署
@@ -99,7 +99,7 @@ task tools
 task swagger
 
 # 或手动生成
-swag init -g cmd/downloader/main.go -o docs --parseDependency --parseInternal
+swag init -g cmd/core/main.go -o docs --parseDependency --parseInternal
 ```
 
 ### API 端点列表
@@ -153,7 +153,7 @@ task --list       # 查看所有任务
 | [SWAGGER_GUIDE.md](SWAGGER_GUIDE.md) | Swagger API 文档指南 | API 开发者 |
 | [TASKFILE_GUIDE.md](TASKFILE_GUIDE.md) | Taskfile 使用指南 | 开发者 |
 | [TASKFILE_SIMPLIFICATION.md](TASKFILE_SIMPLIFICATION.md) | Taskfile 简化说明 | 开发者 |
-| [README_DOWNLOADER.md](README_DOWNLOADER.md) | 完整使用文档 | API 使用者 |
+| [README_core.md](README_core.md) | 完整使用文档 | API 使用者 |
 | [FINAL_SUMMARY.md](FINAL_SUMMARY.md) | 最终交付总结 | 项目经理 |
 | [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) | 实现总结 | 架构师 |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 项目结构 | 维护者 |
@@ -180,8 +180,8 @@ task --list       # 查看所有任务
 1. **新手入门** → [QUICKSTART.md](QUICKSTART.md)
 2. **API 文档** → [SWAGGER_GUIDE.md](SWAGGER_GUIDE.md) 或访问 http://localhost:8080/swagger/index.html
 3. **使用 Taskfile** → [TASKFILE_GUIDE.md](TASKFILE_GUIDE.md)
-4. **API 调用** → [README_DOWNLOADER.md](README_DOWNLOADER.md)
-5. **故障排查** → [README_DOWNLOADER.md#故障排查](README_DOWNLOADER.md#故障排查)
+4. **API 调用** → [README_core.md](README_core.md)
+5. **故障排查** → [README_core.md#故障排查](README_core.md#故障排查)
 
 ---
 

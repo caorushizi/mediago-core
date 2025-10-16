@@ -64,7 +64,7 @@ function setupBinary() {
 
   // Find the platform-specific package
   const platformPkgDir = findPlatformPackage(platform);
-  const sourceBinary = path.join(platformPkgDir, 'bin', binaryName);
+  const sourceBinary = path.join(platformPkgDir, 'files', binaryName);
 
   // Check if source binary exists
   if (!fs.existsSync(sourceBinary)) {
@@ -74,7 +74,7 @@ function setupBinary() {
 
   // Create bin directory in the root package
   const rootDir = __dirname;
-  const binDir = path.join(rootDir, 'bin');
+  const binDir = path.join(rootDir, 'files');
   const targetBinary = path.join(binDir, isWindows ? 'mediago-core.exe' : 'mediago-core');
 
   // Create bin directory if it doesn't exist
