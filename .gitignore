@@ -28,3 +28,4 @@ dist-ssr
 bin
 .task
 release
+!.bin/**/*
