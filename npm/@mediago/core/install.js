@@ -83,9 +83,9 @@ function setupBinary() {
   }
 
   // Remove existing binary if it exists
-  // if (fs.existsSync(targetBinary)) {
-  //   fs.unlinkSync(targetBinary);
-  // }
+  if (fs.existsSync(targetBinary)) {
+    fs.rmSync(targetBinary, { recursive: true, force: true });
+  }
 
   // On Windows, copy the binary; on Unix, create a symlink
   if (isWindows) {
