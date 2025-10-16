@@ -29,9 +29,9 @@ function generatePlatformPackage(platform) {
     os: platform.os,
     cpu: platform.cpu,
     bin: {
-      'mediago-core': `bin/${platform.bin}`,
+      'mediago-core': `files/${platform.bin}`,
     },
-    files: [`bin/${platform.bin}`],
+    files: [`files/${platform.bin}`],
     license: 'ISC',
   };
 }
