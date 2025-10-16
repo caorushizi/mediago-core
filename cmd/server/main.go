@@ -9,6 +9,8 @@ import (
 
 	"caorushizi.cn/mediago/internal/api"
 	"caorushizi.cn/mediago/internal/core"
+	"caorushizi.cn/mediago/internal/core/runner"
+	"caorushizi.cn/mediago/internal/core/schema"
 	"caorushizi.cn/mediago/internal/logger"
 
 	_ "caorushizi.cn/mediago/docs" // Swagger 文档
@@ -63,7 +65,7 @@ func main() {
 	schemaPath := getConfigPath()
 	logger.Infof("Loading schemas from: %s", schemaPath)
 
-	schemas, err := core.LoadSchemasFromJSON(schemaPath)
+	schemas, err := schema.LoadSchemasFromJSON(schemaPath)
 	if err != nil {
 		logger.Fatalf("Failed to load schemas: %v", err)
 	}
@@ -76,8 +78,8 @@ func main() {
 	}
 
 	// 4. 创建核心组件
-	runner := core.NewExecRunner()
-	downloader := core.NewDownloader(binMap, runner, schemas)
+	r := runner.NewPTYRunner()
+	downloader := core.NewDownloader(binMap, r, schemas)
 	queue := core.NewTaskQueue(downloader, 2) // 默认并发数：2
 
 	logger.Info("Task queue initialized (maxRunner=2)")

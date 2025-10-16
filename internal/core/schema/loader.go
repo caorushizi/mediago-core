@@ -1,5 +1,5 @@
-// Package core 包含 Schema 配置加载逻辑
-package core
+// Package schema 包含 Schema 配置加载逻辑
+package schema
 
 import (
 	"encoding/json"
@@ -26,7 +26,7 @@ type ConsoleReg struct {
 
 // Schema 下载类型的配置模式
 type Schema struct {
-	Type       DownloadType       `json:"type"`       // 下载类型
+	Type       string             `json:"type"`       // 下载类型
 	Args       map[string]ArgSpec `json:"args"`       // 参数映射表
 	ConsoleReg ConsoleReg         `json:"consoleReg"` // 控制台解析规则
 }
@@ -37,7 +37,7 @@ type SchemaList struct {
 }
 
 // GetByType 根据下载类型获取对应的 Schema
-func (sl SchemaList) GetByType(t DownloadType) (Schema, bool) {
+func (sl SchemaList) GetByType(t string) (Schema, bool) {
 	for _, s := range sl.Schemas {
 		if s.Type == t {
 			return s, true
