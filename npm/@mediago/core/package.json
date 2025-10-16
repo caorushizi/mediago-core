@@ -6,9 +6,7 @@
   "scripts": {
     "postinstall": "node install.js"
   },
-  "bin": {
-    "mediago-core": "bin/mediago-core"
-  },
+  "bin": {},
   "optionalDependencies": {
     "@mediago/core-darwin-x64": "0.0.4",
     "@mediago/core-darwin-arm64": "0.0.4",
