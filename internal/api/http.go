@@ -56,7 +56,7 @@ func NewServer(queue *core.TaskQueue) *Server {
 // setupRoutes 设置路由
 func (s *Server) setupRoutes() {
 	// 健康检查接口
-	s.engine.Any("/healthz", s.healthCheck)
+	s.engine.GET("/healthy", s.healthCheck)
 
 	// Swagger 文档路由
 	s.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

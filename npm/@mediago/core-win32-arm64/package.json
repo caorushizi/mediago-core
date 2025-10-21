@@ -1,6 +1,6 @@
 {
   "name": "@mediago/core-win32-arm64",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "MediaGo Player binary for win32 arm64",
   "os": [
     "win32"

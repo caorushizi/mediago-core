@@ -2,8 +2,6 @@
 package main
 
 import (
-	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,6 +10,7 @@ import (
 	"caorushizi.cn/mediago/internal/core/runner"
 	"caorushizi.cn/mediago/internal/core/schema"
 	"caorushizi.cn/mediago/internal/logger"
+	"github.com/gin-gonic/gin"
 
 	_ "caorushizi.cn/mediago/docs" // Swagger 文档
 )
@@ -44,15 +43,15 @@ import (
 // @tag.description 实时事件推送相关接口
 
 func main() {
-	// 0. 解析命令行参数
-	host := flag.String("host", "", "Server host address (default: 0.0.0.0 or from MEDIAGO_SERVER_ADDR)")
-	port := flag.String("port", "", "Server port (default: 8080 or from MEDIAGO_SERVER_ADDR)")
-	flag.Parse()
+	// Read config from env/flags
+	mode := getEnv("GIN_MODE", "release") // "debug" / "release" / "test"
+	defaultHost := getEnv("HOST", "0.0.0.0")
+	defaultPort := getEnv("PORT", "8080")
 
 	// 1. 初始化日志系统
 	logCfg := logger.DefaultConfig()
-	logCfg.Level = getEnvOrDefault("MEDIAGO_LOG_LEVEL", "info")
-	logCfg.LogDir = getEnvOrDefault("MEDIAGO_LOG_DIR", "./logs")
+	logCfg.Level = getEnv("MEDIAGO_LOG_LEVEL", "info")
+	logCfg.LogDir = getEnv("MEDIAGO_LOG_DIR", "./logs")
 
 	if err := logger.Init(logCfg); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
@@ -86,10 +85,11 @@ func main() {
 
 	// 5. 启动 HTTP 服务器
 	server := api.NewServer(queue)
-	addr := getServerAddr(*host, *port)
+	addr := defaultHost + ":" + defaultPort
+	gin.SetMode(mode)
 	logger.Infof("Starting HTTP server on %s", addr)
 	logger.Info("API Endpoints:")
-	logger.Info("  ANY  /healthz            - Health check")
+	logger.Info("  GET  /healthy            - Health check")
 	logger.Info("  POST /api/tasks          - Create download task")
 	logger.Info("  GET  /api/tasks          - Get all tasks status")
 	logger.Info("  GET  /api/tasks/:id      - Get task status")
@@ -97,7 +97,7 @@ func main() {
 	logger.Info("  POST /api/config         - Update config")
 	logger.Info("  GET  /api/events         - SSE event stream (status changes only)")
 	logger.Info("Swagger Documentation:")
-	logger.Infof("  http://localhost%s/swagger/index.html", addr)
+	logger.Infof("  http://%s/swagger/index.html", addr)
 
 	if err := server.Run(addr); err != nil {
 		logger.Fatalf("Failed to start server: %v", err)
@@ -120,40 +120,16 @@ func getBinaryMap() map[core.DownloadType]string {
 	binMap := make(map[core.DownloadType]string)
 
 	// 从环境变量读取，或使用默认路径
-	binMap[core.TypeM3U8] = getEnvOrDefault("MEDIAGO_M3U8_BIN", "/usr/local/bin/N_m3u8DL-RE")
-	binMap[core.TypeBilibili] = getEnvOrDefault("MEDIAGO_BILIBILI_BIN", "/usr/local/bin/BBDown")
-	binMap[core.TypeDirect] = getEnvOrDefault("MEDIAGO_DIRECT_BIN", "/usr/local/bin/aria2c")
+	binMap[core.TypeM3U8] = getEnv("MEDIAGO_M3U8_BIN", "/usr/local/bin/N_m3u8DL-RE")
+	binMap[core.TypeBilibili] = getEnv("MEDIAGO_BILIBILI_BIN", "/usr/local/bin/BBDown")
+	binMap[core.TypeDirect] = getEnv("MEDIAGO_DIRECT_BIN", "/usr/local/bin/aria2c")
 
 	return binMap
 }
 
-// getServerAddr 获取服务器监听地址
-// 优先级：命令行参数 > 环境变量 > 默认值
-func getServerAddr(host, port string) string {
-	// 如果命令行参数指定了 host 和 port，优先使用
-	if host != "" || port != "" {
-		if host == "" {
-			host = "0.0.0.0"
-		}
-		if port == "" {
-			port = "8080"
-		}
-		return fmt.Sprintf("%s:%s", host, port)
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-
-	// 否则从环境变量读取
-	if addr := os.Getenv("MEDIAGO_SERVER_ADDR"); addr != "" {
-		return addr
-	}
-
-	// 默认值
-	return ":8080"
-}
-
-// getEnvOrDefault 获取环境变量或返回默认值
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
+	return def
 }
