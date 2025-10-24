@@ -1,6 +1,6 @@
 {
   "name": "@mediago/deps-win32-arm64",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "MediaGo Player dependency binaries for win32 arm64",
   "os": [
     "win32"
