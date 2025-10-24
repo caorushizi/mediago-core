@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 
 /**
- * Post-install script for @mediago/core
+ * Post-install script for {{npmScope}}/{{corePackageName}}
  * Detects the current platform and assembles files from split core/deps packages.
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const PACKAGE_SCOPE = '@mediago';
-const CORE_PACKAGE = 'core';
-const CORE_PLATFORM_PREFIX = 'core-';
-const DEPS_PLATFORM_PREFIX = 'deps-';
-const TARGET_FILES_DIR = 'files';
+const PACKAGE_SCOPE = '{{npmScope}}';
+const CORE_PACKAGE = '{{corePackageName}}';
+const CORE_PLATFORM_PREFIX = '{{corePlatformPrefix}}';
+const DEPS_PLATFORM_PREFIX = '{{depsPlatformPrefix}}';
+const TARGET_FILES_DIR = '{{filesDir}}';
 const PACKAGE_NAME = `${PACKAGE_SCOPE}/${CORE_PACKAGE}`;
-const CORE_CONFIG_FILE = 'config.json';
-const DEPS_DIR = 'bin';
+const CORE_CONFIG_FILE = '{{downloadSchemaFile}}';
+const DEPS_DIR = '{{packageBinDir}}';
 
 function detectPlatform() {
   const platform = os.platform();
@@ -72,13 +72,13 @@ function writeCliShim(rootDir, isWindows) {
   }
   fs.mkdirSync(binDir, { recursive: true });
 
-  const shimPath = path.join(binDir, 'mediago-core');
+  const shimPath = path.join(binDir, '{{appName}}');
   const shimContent = `#!/usr/bin/env node
 
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const binaryName = process.platform === 'win32' ? 'mediago-core.exe' : 'mediago-core';
+const binaryName = process.platform === 'win32' ? '{{appName}}.exe' : '{{appName}}';
 const binaryPath = path.join(__dirname, '..', '${TARGET_FILES_DIR}', binaryName);
 const result = spawnSync(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
 
@@ -96,7 +96,7 @@ process.exit(result.status ?? 0);
 }
 
 function copyCorePackage(coreDir, targetDir, isWindows) {
-  const binaryName = `mediago-core${isWindows ? '.exe' : ''}`;
+  const binaryName = `{{appName}}${isWindows ? '.exe' : ''}`;
   const sourceBinary = path.join(coreDir, binaryName);
   if (!fs.existsSync(sourceBinary)) {
     console.error(`Error: Core binary not found at ${sourceBinary}`);
@@ -132,7 +132,7 @@ function setupBinary() {
   const coreDir = resolvePackageDir(corePackageName);
   const depsDir = resolvePackageDir(depsPackageName, { optional: true });
 
-  console.log(`Setting up mediago-core for ${platform}...`);
+  console.log(`Setting up {{appName}} for ${platform}...`);
 
   if (fs.existsSync(targetDir)) {
     fs.rmSync(targetDir, { recursive: true, force: true });
@@ -144,7 +144,7 @@ function setupBinary() {
 
   writeCliShim(rootDir, isWindows);
 
-  console.log(`mediago-core is ready to use.`);
+  console.log(`{{appName}} is ready to use.`);
 }
 
 try {

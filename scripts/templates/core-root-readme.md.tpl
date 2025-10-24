@@ -1,17 +1,17 @@
-# @mediago/core
+# {{npmScope}}/{{corePackageName}}
 
 MediaGo Player is a hybrid Go+React video player server that combines a powerful Go backend with a responsive React frontend.
 
-_Current package version: 0.0.6_
+_Current package version: {{version}}_
 
 ## Installation
 
 ```bash
-npm install @mediago/core
+npm install {{npmScope}}/{{corePackageName}}
 # or
-pnpm add @mediago/core
+pnpm add {{npmScope}}/{{corePackageName}}
 # or
-yarn add @mediago/core
+yarn add {{npmScope}}/{{corePackageName}}
 ```
 
 ## Usage
@@ -19,13 +19,13 @@ yarn add @mediago/core
 ### As a CLI
 
 ```bash
-npx @mediago/core
+npx {{npmScope}}/{{corePackageName}}
 ```
 
 ### With Custom Flags
 
 ```bash
-npx @mediago/core -host 0.0.0.0 -port 8080
+npx {{npmScope}}/{{corePackageName}} -host 0.0.0.0 -port 8080
 ```
 
 ### Available Flags

@@ -75,7 +75,7 @@ event, errMsg := lp.Parse(line, state)
 import "caorushizi.cn/mediago/internal/core/schema"
 
 // 加载配置
-schemas, err := schema.LoadSchemasFromJSON("configs/download_schemas.json")
+schemas, err := schema.LoadSchemasFromJSON("configs/config.json")
 
 // 获取特定类型的配置
 s, ok := schemas.GetByType("m3u8")

@@ -1,4 +1,2 @@
-packages:
-  - ui
-  - npm/@mediago/core
-  - npm/@mediago/core-*
+onlyBuiltDependencies:
+  - '@swc/core'
