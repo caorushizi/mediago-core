@@ -2,7 +2,7 @@
 
 This package aggregates the platform-specific MediaGo helper binaries (download tools, encoders, etc.).
 
-_Current package version: 0.0.2_
+_Current package version: 0.0.3_
 
 It installs the appropriate optional dependency for your platform:
 
