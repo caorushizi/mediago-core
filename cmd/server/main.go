@@ -109,10 +109,15 @@ func getConfigPath() string {
 	if path := os.Getenv("MEDIAGO_SCHEMA_PATH"); path != "" {
 		return path
 	}
-	// 默认路径：相对于可执行文件的 configs 目录
+	// 默认路径：优先使用可执行文件所在目录下的 config.json
 	execPath, _ := os.Executable()
 	execDir := filepath.Dir(execPath)
-	return filepath.Join(execDir, "..", "..", "configs", "download_schemas.json")
+	localConfig := filepath.Join(execDir, "config.json")
+	if _, err := os.Stat(localConfig); err == nil {
+		return localConfig
+	}
+	// 回退到仓库内的配置文件路径
+	return filepath.Join(execDir, "..", "..", "configs", "config.json")
 }
 
 // getBinaryMap 获取下载器二进制路径映射
