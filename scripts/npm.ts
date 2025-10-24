@@ -375,22 +375,40 @@ export const buildDepsPackages = series(cleanDepsArtifacts, assembleDepsPackages
 
 export async function publishCorePackages() {
   console.log('📤 发布 Core NPM 包...');
-  const coreVersion = await getVersion();
 
-  for (const pkg of CORE_NPM_PACKAGES) {
+  // 先发布平台子包
+  console.log('📦 发布平台子包...');
+  for (const platform of PLATFORMS) {
+    const pkg = resolveNpmScopePath(`${npmConfig.corePlatformPrefix}${platform.id}`);
+    console.log(`  发布: ${npmConfig.scope}/${npmConfig.corePlatformPrefix}${platform.id}`);
     await runCommand(`cd ${pkg} && npm publish --access public`);
   }
 
-  console.log(`✅ Core NPM 包发布成功 (版本 ${coreVersion})`);
+  // 再发布主包
+  console.log('📦 发布主包...');
+  const rootPkg = resolveNpmScopePath(npmConfig.corePackageName);
+  console.log(`  发布: ${npmConfig.scope}/${npmConfig.corePackageName}`);
+  await runCommand(`cd ${rootPkg} && npm publish --access public`);
+
+  console.log(`✅ Core NPM 包发布成功`);
 }
 
 export async function publishDepsPackages() {
   console.log('📤 发布依赖 NPM 包...');
-  const depsVersion = await getVersion();
 
-  for (const pkg of DEPS_NPM_PACKAGES) {
+  // 先发布平台子包
+  console.log('📦 发布平台子包...');
+  for (const platform of PLATFORMS) {
+    const pkg = resolveNpmScopePath(`${npmConfig.depsPlatformPrefix}${platform.id}`);
+    console.log(`  发布: ${npmConfig.scope}/${npmConfig.depsPlatformPrefix}${platform.id}`);
     await runCommand(`cd ${pkg} && npm publish --access public`);
   }
 
-  console.log(`✅ 依赖 NPM 包发布成功 (版本 ${depsVersion})`);
+  // 再发布主包
+  console.log('📦 发布主包...');
+  const rootPkg = resolveNpmScopePath(npmConfig.depsPackageName);
+  console.log(`  发布: ${npmConfig.scope}/${npmConfig.depsPackageName}`);
+  await runCommand(`cd ${rootPkg} && npm publish --access public`);
+
+  console.log(`✅ 依赖 NPM 包发布成功`);
 }
