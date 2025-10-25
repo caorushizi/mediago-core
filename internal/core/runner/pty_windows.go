@@ -68,15 +68,15 @@ func (r *PTYRunner) runWithPTY(ctx context.Context, binPath string, args []strin
 	select {
 	case <-ctx.Done():
 		// 上下文取消
-		waitCancel()     // 取消 Wait
-		closeConPty()    // 关闭 ConPTY (会终止子进程)
-		<-readDone       // 等待读取完成
+		waitCancel()  // 取消 Wait
+		closeConPty() // 关闭 ConPTY (会终止子进程)
+		<-readDone    // 等待读取完成
 		finalErr = ctx.Err()
 
 	case err := <-waitDone:
 		// 进程完成
-		closeConPty()    // 关闭 ConPTY
-		<-readDone       // 等待读取完成
+		closeConPty() // 关闭 ConPTY
+		<-readDone    // 等待读取完成
 		finalErr = err
 	}
 

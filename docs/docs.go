@@ -44,7 +44,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.UpdateConfigRequest"
+                            "$ref": "#/definitions/dto.UpdateConfigRequest"
                         }
                     }
                 ],
@@ -52,13 +52,13 @@ const docTemplate = `{
                     "200": {
                         "description": "配置更新成功",
                         "schema": {
-                            "$ref": "#/definitions/api.UpdateConfigResponse"
+                            "$ref": "#/definitions/dto.UpdateConfigResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -84,116 +84,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/healthz": {
+        "/healthy": {
             "get": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "健康检查",
-                "responses": {
-                    "200": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "健康检查",
-                "responses": {
-                    "200": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "健康检查",
-                "responses": {
-                    "200": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "健康检查",
-                "responses": {
-                    "200": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "options": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "健康检查",
-                "responses": {
-                    "200": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "head": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
-                "produces": [
-                    "text/plain"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "健康检查",
-                "responses": {
-                    "200": {
-                        "description": "ok",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "patch": {
                 "description": "服务健康检查接口，用于监控服务是否正常运行",
                 "produces": [
                     "text/plain"
@@ -229,10 +121,7 @@ const docTemplate = `{
                     "200": {
                         "description": "任务列表",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/core.TaskInfo"
-                            }
+                            "$ref": "#/definitions/dto.TaskListResponse"
                         }
                     }
                 }
@@ -256,7 +145,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.CreateTaskRequest"
+                            "$ref": "#/definitions/dto.CreateTaskRequest"
                         }
                     }
                 ],
@@ -264,13 +153,13 @@ const docTemplate = `{
                     "200": {
                         "description": "任务创建成功",
                         "schema": {
-                            "$ref": "#/definitions/api.CreateTaskResponse"
+                            "$ref": "#/definitions/dto.CreateTaskResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -291,8 +180,8 @@ const docTemplate = `{
                 "summary": "获取任务状态",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "example": 1,
+                        "type": "string",
+                        "example": "task-1",
                         "description": "任务ID",
                         "name": "id",
                         "in": "path",
@@ -306,16 +195,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.TaskInfo"
                         }
                     },
-                    "400": {
-                        "description": "无效的任务ID",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -336,8 +219,8 @@ const docTemplate = `{
                 "summary": "停止下载任务",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "example": 1,
+                        "type": "string",
+                        "example": "task-1",
                         "description": "任务ID",
                         "name": "id",
                         "in": "path",
@@ -348,19 +231,13 @@ const docTemplate = `{
                     "200": {
                         "description": "任务停止成功",
                         "schema": {
-                            "$ref": "#/definitions/api.StopTaskResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "无效的任务ID",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.StopTaskResponse"
                         }
                     },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -368,127 +245,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.CreateTaskRequest": {
-            "type": "object",
-            "required": [
-                "localDir",
-                "name",
-                "type",
-                "url"
-            ],
-            "properties": {
-                "deleteSegments": {
-                    "description": "是否删除分段文件",
-                    "type": "boolean",
-                    "example": true
-                },
-                "folder": {
-                    "description": "子文件夹",
-                    "type": "string",
-                    "example": "movies"
-                },
-                "headers": {
-                    "description": "自定义HTTP头",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "User-Agent: Mozilla/5.0"
-                    ]
-                },
-                "id": {
-                    "description": "任务ID（可选，不提供时自动生成）",
-                    "type": "integer",
-                    "example": 1
-                },
-                "localDir": {
-                    "description": "本地保存目录",
-                    "type": "string",
-                    "example": "/downloads"
-                },
-                "name": {
-                    "description": "文件名",
-                    "type": "string",
-                    "example": "video.mp4"
-                },
-                "proxy": {
-                    "description": "代理地址",
-                    "type": "string",
-                    "example": "http://proxy.com:8080"
-                },
-                "type": {
-                    "description": "下载类型：m3u8/bilibili/direct",
-                    "type": "string",
-                    "example": "m3u8"
-                },
-                "url": {
-                    "description": "下载URL",
-                    "type": "string",
-                    "example": "https://example.com/a.m3u8"
-                }
-            }
-        },
-        "api.CreateTaskResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "description": "任务ID",
-                    "type": "integer",
-                    "example": 1
-                },
-                "message": {
-                    "description": "响应消息",
-                    "type": "string",
-                    "example": "Task enqueued successfully"
-                }
-            }
-        },
-        "api.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "description": "错误信息",
-                    "type": "string",
-                    "example": "invalid request"
-                }
-            }
-        },
-        "api.StopTaskResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "description": "响应消息",
-                    "type": "string",
-                    "example": "Task stopped"
-                }
-            }
-        },
-        "api.UpdateConfigRequest": {
-            "type": "object",
-            "properties": {
-                "maxRunner": {
-                    "description": "最大并发下载数",
-                    "type": "integer",
-                    "example": 3
-                },
-                "proxy": {
-                    "description": "代理服务器地址",
-                    "type": "string",
-                    "example": "http://proxy.com:8080"
-                }
-            }
-        },
-        "api.UpdateConfigResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "description": "响应消息",
-                    "type": "string",
-                    "example": "Config updated"
-                }
-            }
-        },
         "core.DownloadType": {
             "type": "string",
             "enum": [
@@ -581,6 +337,147 @@ const docTemplate = `{
                 "StatusFailed",
                 "StatusStopped"
             ]
+        },
+        "dto.CreateTaskRequest": {
+            "type": "object",
+            "required": [
+                "localDir",
+                "name",
+                "type",
+                "url"
+            ],
+            "properties": {
+                "deleteSegments": {
+                    "description": "是否删除分段文件",
+                    "type": "boolean",
+                    "example": true
+                },
+                "folder": {
+                    "description": "子文件夹",
+                    "type": "string",
+                    "example": "movies"
+                },
+                "headers": {
+                    "description": "自定义HTTP头",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "User-Agent: Mozilla/5.0"
+                    ]
+                },
+                "id": {
+                    "description": "任务ID（可选，不提供时自动生成）",
+                    "type": "string",
+                    "example": "task-1"
+                },
+                "localDir": {
+                    "description": "本地保存目录",
+                    "type": "string",
+                    "example": "/downloads"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string",
+                    "example": "video.mp4"
+                },
+                "proxy": {
+                    "description": "代理地址",
+                    "type": "string",
+                    "example": "http://proxy.com:8080"
+                },
+                "type": {
+                    "description": "下载类型：m3u8/bilibili/direct",
+                    "type": "string",
+                    "enum": [
+                        "m3u8",
+                        "bilibili",
+                        "direct"
+                    ]
+                },
+                "url": {
+                    "description": "下载URL",
+                    "type": "string",
+                    "example": "https://example.com"
+                }
+            }
+        },
+        "dto.CreateTaskResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "任务ID",
+                    "type": "string",
+                    "example": "task-1"
+                },
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Task enqueued successfully"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "错误信息",
+                    "type": "string",
+                    "example": "invalid request"
+                }
+            }
+        },
+        "dto.StopTaskResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Task stopped"
+                }
+            }
+        },
+        "dto.TaskListResponse": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "description": "任务列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.TaskInfo"
+                    }
+                },
+                "total": {
+                    "description": "总数量",
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UpdateConfigRequest": {
+            "type": "object",
+            "properties": {
+                "maxRunner": {
+                    "description": "最大并发下载数",
+                    "type": "integer",
+                    "example": 3
+                },
+                "proxy": {
+                    "description": "代理服务器地址",
+                    "type": "string",
+                    "example": "http://proxy.com:8080"
+                }
+            }
+        },
+        "dto.UpdateConfigResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Config updated"
+                }
+            }
         }
     },
     "tags": [
