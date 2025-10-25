@@ -1,95 +1,5 @@
 basePath: /api
 definitions:
-  api.CreateTaskRequest:
-    properties:
-      deleteSegments:
-        description: 是否删除分段文件
-        example: true
-        type: boolean
-      folder:
-        description: 子文件夹
-        example: movies
-        type: string
-      headers:
-        description: 自定义HTTP头
-        example:
-        - 'User-Agent: Mozilla/5.0'
-        items:
-          type: string
-        type: array
-      id:
-        description: 任务ID（可选，不提供时自动生成）
-        example: 1
-        type: integer
-      localDir:
-        description: 本地保存目录
-        example: /downloads
-        type: string
-      name:
-        description: 文件名
-        example: video.mp4
-        type: string
-      proxy:
-        description: 代理地址
-        example: http://proxy.com:8080
-        type: string
-      type:
-        description: 下载类型：m3u8/bilibili/direct
-        example: m3u8
-        type: string
-      url:
-        description: 下载URL
-        example: https://example.com/a.m3u8
-        type: string
-    required:
-    - localDir
-    - name
-    - type
-    - url
-    type: object
-  api.CreateTaskResponse:
-    properties:
-      id:
-        description: 任务ID
-        example: 1
-        type: integer
-      message:
-        description: 响应消息
-        example: Task enqueued successfully
-        type: string
-    type: object
-  api.ErrorResponse:
-    properties:
-      error:
-        description: 错误信息
-        example: invalid request
-        type: string
-    type: object
-  api.StopTaskResponse:
-    properties:
-      message:
-        description: 响应消息
-        example: Task stopped
-        type: string
-    type: object
-  api.UpdateConfigRequest:
-    properties:
-      maxRunner:
-        description: 最大并发下载数
-        example: 3
-        type: integer
-      proxy:
-        description: 代理服务器地址
-        example: http://proxy.com:8080
-        type: string
-    type: object
-  api.UpdateConfigResponse:
-    properties:
-      message:
-        description: 响应消息
-        example: Config updated
-        type: string
-    type: object
   core.DownloadType:
     enum:
     - m3u8
@@ -158,6 +68,110 @@ definitions:
     - StatusSuccess
     - StatusFailed
     - StatusStopped
+  dto.CreateTaskRequest:
+    properties:
+      deleteSegments:
+        description: 是否删除分段文件
+        example: true
+        type: boolean
+      folder:
+        description: 子文件夹
+        example: movies
+        type: string
+      headers:
+        description: 自定义HTTP头
+        example:
+        - 'User-Agent: Mozilla/5.0'
+        items:
+          type: string
+        type: array
+      id:
+        description: 任务ID（可选，不提供时自动生成）
+        example: task-1
+        type: string
+      localDir:
+        description: 本地保存目录
+        example: /downloads
+        type: string
+      name:
+        description: 文件名
+        example: video.mp4
+        type: string
+      proxy:
+        description: 代理地址
+        example: http://proxy.com:8080
+        type: string
+      type:
+        description: 下载类型：m3u8/bilibili/direct
+        enum:
+        - m3u8
+        - bilibili
+        - direct
+        type: string
+      url:
+        description: 下载URL
+        example: https://example.com
+        type: string
+    required:
+    - localDir
+    - name
+    - type
+    - url
+    type: object
+  dto.CreateTaskResponse:
+    properties:
+      id:
+        description: 任务ID
+        example: task-1
+        type: string
+      message:
+        description: 响应消息
+        example: Task enqueued successfully
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        description: 错误信息
+        example: invalid request
+        type: string
+    type: object
+  dto.StopTaskResponse:
+    properties:
+      message:
+        description: 响应消息
+        example: Task stopped
+        type: string
+    type: object
+  dto.TaskListResponse:
+    properties:
+      tasks:
+        description: 任务列表
+        items:
+          $ref: '#/definitions/core.TaskInfo'
+        type: array
+      total:
+        description: 总数量
+        type: integer
+    type: object
+  dto.UpdateConfigRequest:
+    properties:
+      maxRunner:
+        description: 最大并发下载数
+        example: 3
+        type: integer
+      proxy:
+        description: 代理服务器地址
+        example: http://proxy.com:8080
+        type: string
+    type: object
+  dto.UpdateConfigResponse:
+    properties:
+      message:
+        description: 响应消息
+        example: Config updated
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -172,7 +186,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   termsOfService: http://swagger.io/terms/
-  title: MediaGo Core API
+  title: MediaGo Downloader API
   version: "1.0"
 paths:
   /config:
@@ -186,18 +200,18 @@ paths:
         name: config
         required: true
         schema:
-          $ref: '#/definitions/api.UpdateConfigRequest'
+          $ref: '#/definitions/dto.UpdateConfigRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 配置更新成功
           schema:
-            $ref: '#/definitions/api.UpdateConfigResponse'
+            $ref: '#/definitions/dto.UpdateConfigResponse'
         "400":
           description: 请求参数错误
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: 更新系统配置
       tags:
       - Config
@@ -217,80 +231,8 @@ paths:
       summary: SSE 事件流
       tags:
       - Events
-  /healthz:
-    delete:
-      description: 服务健康检查接口，用于监控服务是否正常运行
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-      summary: 健康检查
-      tags:
-      - Health
+  /healthy:
     get:
-      description: 服务健康检查接口，用于监控服务是否正常运行
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-      summary: 健康检查
-      tags:
-      - Health
-    head:
-      description: 服务健康检查接口，用于监控服务是否正常运行
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-      summary: 健康检查
-      tags:
-      - Health
-    options:
-      description: 服务健康检查接口，用于监控服务是否正常运行
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-      summary: 健康检查
-      tags:
-      - Health
-    patch:
-      description: 服务健康检查接口，用于监控服务是否正常运行
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-      summary: 健康检查
-      tags:
-      - Health
-    post:
-      description: 服务健康检查接口，用于监控服务是否正常运行
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: ok
-          schema:
-            type: string
-      summary: 健康检查
-      tags:
-      - Health
-    put:
       description: 服务健康检查接口，用于监控服务是否正常运行
       produces:
       - text/plain
@@ -313,9 +255,7 @@ paths:
         "200":
           description: 任务列表
           schema:
-            items:
-              $ref: '#/definitions/core.TaskInfo'
-            type: array
+            $ref: '#/definitions/dto.TaskListResponse'
       summary: 获取所有任务状态
       tags:
       - Tasks
@@ -331,18 +271,18 @@ paths:
         name: task
         required: true
         schema:
-          $ref: '#/definitions/api.CreateTaskRequest'
+          $ref: '#/definitions/dto.CreateTaskRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 任务创建成功
           schema:
-            $ref: '#/definitions/api.CreateTaskResponse'
+            $ref: '#/definitions/dto.CreateTaskResponse'
         "400":
           description: 请求参数错误
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: 创建下载任务
       tags:
       - Tasks
@@ -353,11 +293,11 @@ paths:
       description: 获取指定ID的任务状态和进度信息
       parameters:
       - description: 任务ID
-        example: 1
+        example: task-1
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -365,14 +305,10 @@ paths:
           description: 任务信息
           schema:
             $ref: '#/definitions/core.TaskInfo'
-        "400":
-          description: 无效的任务ID
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
         "404":
           description: 任务不存在
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: 获取任务状态
       tags:
       - Tasks
@@ -383,26 +319,22 @@ paths:
       description: 停止指定ID的下载任务
       parameters:
       - description: 任务ID
-        example: 1
+        example: task-1
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: 任务停止成功
           schema:
-            $ref: '#/definitions/api.StopTaskResponse'
-        "400":
-          description: 无效的任务ID
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.StopTaskResponse'
         "404":
           description: 任务不存在
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: 停止下载任务
       tags:
       - Tasks
