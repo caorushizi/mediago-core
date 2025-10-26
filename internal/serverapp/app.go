@@ -1,12 +1,9 @@
 package serverapp
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"caorushizi.cn/mediago/internal/api"
@@ -48,7 +45,7 @@ func Run(rawConfig string) error {
 
 	queue := buildTaskQueue(cfg, schemas)
 
-	if err := startHTTPServer(cfg, queue); err != nil {
+	if err := startHTTPServer(queue); err != nil {
 		return fmt.Errorf("start http server: %w", err)
 	}
 
@@ -59,23 +56,29 @@ func initLogger(cfg logConfig) error {
 	logCfg := logger.DefaultConfig()
 	logCfg.Level = cfg.Level
 	logCfg.LogDir = cfg.Dir
+	if strings.TrimSpace(cfg.File) != "" {
+		logCfg.LogFileName = cfg.File
+	}
+	if strings.TrimSpace(cfg.DownloaderFile) != "" {
+		logCfg.DownloaderLogFileName = cfg.DownloaderFile
+	}
 	return logger.Init(logCfg)
 }
 
-func loadSchemas(path string) (schema.Repository, error) {
+func loadSchemas(path string) (schema.SchemaList, error) {
 	schemaPath := resolveSchemaPath(path)
 	logger.Infof("Loading schemas from: %s", schemaPath)
 
 	schemas, err := schema.LoadSchemasFromJSON(schemaPath)
 	if err != nil {
-		return schema.Repository{}, fmt.Errorf("load schemas: %w", err)
+		return schema.SchemaList{}, fmt.Errorf("load schemas: %w", err)
 	}
 
 	logger.Infof("Loaded %d download schemas", len(schemas.Schemas))
 	return schemas, nil
 }
 
-func buildTaskQueue(cfg appConfig, schemas schema.Repository) *core.TaskQueue {
+func buildTaskQueue(cfg appConfig, schemas schema.SchemaList) *core.TaskQueue {
 	binMap := cfg.Binaries.toMap()
 	for dt, path := range binMap {
 		logger.Infof("%s downloader: %s", dt, path)
@@ -95,11 +98,11 @@ func buildTaskQueue(cfg appConfig, schemas schema.Repository) *core.TaskQueue {
 	return queue
 }
 
-func startHTTPServer(cfg appConfig, queue *core.TaskQueue) error {
+func startHTTPServer(queue *core.TaskQueue) error {
 	server := api.NewServer(queue)
-	addr := buildListenAddr(cfg)
+	addr := buildListenAddr()
 
-	ginMode := getEnv("GIN_MODE", cfg.Mode)
+	ginMode := getEnv("GIN_MODE", defaultMode)
 	if strings.TrimSpace(ginMode) == "" {
 		ginMode = defaultMode
 	}
@@ -120,140 +123,10 @@ func startHTTPServer(cfg appConfig, queue *core.TaskQueue) error {
 	return server.Run(addr)
 }
 
-func buildListenAddr(cfg appConfig) string {
-	host := getEnv("HOST", cfg.Host)
-	port := getEnv("PORT", cfg.Port)
+func buildListenAddr() string {
+	host := getEnv("HOST", defaultHost)
+	port := getEnv("PORT", defaultPort)
 	return net.JoinHostPort(host, port)
-}
-
-func resolveSchemaPath(override string) string {
-	if strings.TrimSpace(override) != "" {
-		return override
-	}
-
-	execPath, _ := os.Executable()
-	execDir := filepath.Dir(execPath)
-	localConfig := filepath.Join(execDir, "config.json")
-	if _, err := os.Stat(localConfig); err == nil {
-		return localConfig
-	}
-
-	return filepath.Join(execDir, "..", "..", "configs", "config.json")
-}
-
-func loadAppConfig(raw string) (appConfig, error) {
-	cfg := defaultAppConfig()
-	if strings.TrimSpace(raw) == "" {
-		return cfg, nil
-	}
-
-	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-		return appConfig{}, err
-	}
-
-	cfg.applyDefaults()
-	return cfg, nil
-}
-
-type appConfig struct {
-	Mode       string           `json:"mode"`
-	Host       string           `json:"host"`
-	Port       string           `json:"port"`
-	Log        logConfig        `json:"log"`
-	SchemaPath string           `json:"schemaPath"`
-	Queue      queueConfigInput `json:"queue"`
-	Binaries   binaryConfig     `json:"binaries"`
-}
-
-type logConfig struct {
-	Level string `json:"level"`
-	Dir   string `json:"dir"`
-}
-
-type queueConfigInput struct {
-	MaxRunner      int    `json:"maxRunner"`
-	LocalDir       string `json:"localDir"`
-	DeleteSegments bool   `json:"deleteSegments"`
-	Proxy          string `json:"proxy"`
-}
-
-func (q queueConfigInput) toCoreConfig() core.QueueConfig {
-	return core.QueueConfig{
-		MaxRunner:      q.MaxRunner,
-		LocalDir:       q.LocalDir,
-		DeleteSegments: q.DeleteSegments,
-		Proxy:          q.Proxy,
-	}
-}
-
-type binaryConfig struct {
-	M3U8     string `json:"m3u8"`
-	Bilibili string `json:"bilibili"`
-	Direct   string `json:"direct"`
-}
-
-func (b binaryConfig) toMap() map[core.DownloadType]string {
-	return map[core.DownloadType]string{
-		core.TypeM3U8:     b.M3U8,
-		core.TypeBilibili: b.Bilibili,
-		core.TypeDirect:   b.Direct,
-	}
-}
-
-func defaultAppConfig() appConfig {
-	return appConfig{
-		Mode: defaultMode,
-		Host: defaultHost,
-		Port: defaultPort,
-		Log: logConfig{
-			Level: "info",
-			Dir:   "./logs",
-		},
-		Queue: queueConfigInput{
-			MaxRunner:      2,
-			LocalDir:       "./downloads",
-			DeleteSegments: false,
-			Proxy:          "",
-		},
-		Binaries: binaryConfig{
-			M3U8:     "/usr/local/bin/N_m3u8DL-RE",
-			Bilibili: "/usr/local/bin/BBDown",
-			Direct:   "/usr/local/bin/aria2c",
-		},
-	}
-}
-
-func (c *appConfig) applyDefaults() {
-	if strings.TrimSpace(c.Mode) == "" {
-		c.Mode = defaultMode
-	}
-	if strings.TrimSpace(c.Host) == "" {
-		c.Host = defaultHost
-	}
-	if strings.TrimSpace(c.Port) == "" {
-		c.Port = defaultPort
-	}
-	if strings.TrimSpace(c.Log.Level) == "" {
-		c.Log.Level = "info"
-	}
-	if strings.TrimSpace(c.Log.Dir) == "" {
-		c.Log.Dir = "./logs"
-	}
-	if c.Queue.MaxRunner <= 0 {
-		c.Queue.MaxRunner = 2
-	}
-	if strings.TrimSpace(c.Queue.LocalDir) == "" {
-		c.Queue.LocalDir = "./downloads"
-	}
-	if strings.TrimSpace(c.Binaries.M3U8) == "" {
-		c.Binaries.M3U8 = "/usr/local/bin/N_m3u8DL-RE"
-	}
-	if strings.TrimSpace(c.Binaries.Bilibili) == "" {
-		c.Binaries.Bilibili = "/usr/local/bin/BBDown"
-	}
-	if strings.TrimSpace(c.Binaries.Direct) == "" {
-		c.Binaries.Direct = "/usr/local/bin/aria2c"
-	}
 }
 
 func getEnv(key, fallback string) string {
@@ -261,35 +134,4 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func writeDefaultConfigTemplate() error {
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("resolve executable path: %w", err)
-	}
-
-	execDir := filepath.Dir(execPath)
-	configPath := filepath.Join(execDir, "config.default.json")
-
-	if _, err := os.Stat(configPath); err == nil {
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("check default config file: %w", err)
-	}
-
-	cfg := defaultAppConfig()
-	cfg.applyDefaults()
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal default config: %w", err)
-	}
-
-	if err := os.WriteFile(configPath, data, 0o644); err != nil {
-		return fmt.Errorf("write default config: %w", err)
-	}
-
-	logger.Infof("Default config template created at %s", configPath)
-	return nil
 }

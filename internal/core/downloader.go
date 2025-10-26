@@ -175,7 +175,15 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 
 	// 逐行处理控制台输出
 	onLine := func(line string) {
-		line = strings.TrimSpace(line)
+		rawLine := strings.TrimRight(line, "\r\n")
+		line = strings.TrimSpace(rawLine)
+
+		if rawLine != "" {
+			logger.DownloaderInfo(rawLine,
+				zap.String("id", string(p.ID)),
+				zap.String("type", string(p.Type)),
+			)
+		}
 
 		// 发送消息事件
 		if cb.OnMessage != nil {
@@ -228,6 +236,11 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 	logger.Info("Executing download command",
 		zap.String("id", string(p.ID)),
 		zap.String("binary", bin))
+	logger.DownloaderInfo("Executing download command",
+		zap.String("id", string(p.ID)),
+		zap.String("binary", bin),
+		zap.Strings("args", args),
+	)
 	err = d.runner.Run(ctx, bin, args, onLine)
 
 	// 清理进度记录
@@ -237,10 +250,15 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 		logger.Error("Download failed",
 			zap.String("id", string(p.ID)),
 			zap.Error(err))
+		logger.DownloaderError("Download failed",
+			zap.String("id", string(p.ID)),
+			zap.Error(err))
 		return err
 	}
 
 	logger.Info("Download completed successfully",
+		zap.String("id", string(p.ID)))
+	logger.DownloaderInfo("Download completed successfully",
 		zap.String("id", string(p.ID)))
 	return nil
 }

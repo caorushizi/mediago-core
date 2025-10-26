@@ -16,6 +16,10 @@ var (
 	Logger *zap.Logger
 	// Sugar 便捷日志实例
 	Sugar *zap.SugaredLogger
+	// DownloaderLogger 外部下载器输出日志实例
+	DownloaderLogger *zap.Logger
+	// DownloaderSugar 外部下载器格式化日志实例
+	DownloaderSugar *zap.SugaredLogger
 )
 
 // Config 日志配置
@@ -26,6 +30,8 @@ type Config struct {
 	LogDir string
 	// LogFileName 日志文件名
 	LogFileName string
+	// DownloaderLogFileName 下载器日志文件名
+	DownloaderLogFileName string
 	// MaxSize 单个日志文件最大大小(MB)
 	MaxSize int
 	// MaxBackups 保留旧日志文件的最大数量
@@ -41,21 +47,22 @@ type Config struct {
 // DefaultConfig 返回默认配置
 func DefaultConfig() Config {
 	return Config{
-		Level:       "info",
-		LogDir:      "./logs",
-		LogFileName: "mediago.log",
-		MaxSize:     100,  // 100MB
-		MaxBackups:  5,    // 保留5个备份
-		MaxAge:      30,   // 30天
-		Compress:    true, // 压缩旧日志
-		Console:     true, // 输出到控制台
+		Level:                 "info",
+		LogDir:                "./logs",
+		LogFileName:           "mediago.log",
+		DownloaderLogFileName: "downloader.log",
+		MaxSize:               100,  // 100MB
+		MaxBackups:            5,    // 保留5个备份
+		MaxAge:                30,   // 30天
+		Compress:              true, // 压缩旧日志
+		Console:               true, // 输出到控制台
 	}
 }
 
 // Init 初始化日志系统
 func Init(cfg Config) error {
 	// 创建日志目录
-	if err := os.MkdirAll(cfg.LogDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.LogDir, 0o755); err != nil {
 		return err
 	}
 
@@ -88,8 +95,16 @@ func Init(cfg Config) error {
 
 	// 配置日志轮转
 	logFile := filepath.Join(cfg.LogDir, cfg.LogFileName)
+	downloaderLogFile := filepath.Join(cfg.LogDir, cfg.DownloaderLogFileName)
 	fileWriter := zapcore.AddSync(&lumberjack.Logger{
 		Filename:   logFile,
+		MaxSize:    cfg.MaxSize,
+		MaxBackups: cfg.MaxBackups,
+		MaxAge:     cfg.MaxAge,
+		Compress:   cfg.Compress,
+	})
+	downloaderFileWriter := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   downloaderLogFile,
 		MaxSize:    cfg.MaxSize,
 		MaxBackups: cfg.MaxBackups,
 		MaxAge:     cfg.MaxAge,
@@ -108,10 +123,15 @@ func Init(cfg Config) error {
 		cores = append(cores, zapcore.NewCore(consoleEncoder, consoleWriter, level))
 	}
 
-	// 创建 logger
+	// 创建核心业务 logger
 	core := zapcore.NewTee(cores...)
 	Logger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 	Sugar = Logger.Sugar()
+
+	// 创建下载器专用 logger（仅写入文件）
+	downloaderCore := zapcore.NewCore(fileEncoder, downloaderFileWriter, level)
+	DownloaderLogger = zap.New(downloaderCore)
+	DownloaderSugar = DownloaderLogger.Sugar()
 
 	return nil
 }
@@ -139,6 +159,12 @@ func Sync() {
 	}
 	if Sugar != nil {
 		_ = Sugar.Sync()
+	}
+	if DownloaderLogger != nil {
+		_ = DownloaderLogger.Sync()
+	}
+	if DownloaderSugar != nil {
+		_ = DownloaderSugar.Sync()
 	}
 }
 
@@ -182,4 +208,54 @@ func Errorf(template string, args ...interface{}) {
 
 func Fatalf(template string, args ...interface{}) {
 	Sugar.Fatalf(template, args...)
+}
+
+// Downloader 便捷方法 - 结构化日志
+func DownloaderDebug(msg string, fields ...zap.Field) {
+	if DownloaderLogger != nil {
+		DownloaderLogger.Debug(msg, fields...)
+	}
+}
+
+func DownloaderInfo(msg string, fields ...zap.Field) {
+	if DownloaderLogger != nil {
+		DownloaderLogger.Info(msg, fields...)
+	}
+}
+
+func DownloaderWarn(msg string, fields ...zap.Field) {
+	if DownloaderLogger != nil {
+		DownloaderLogger.Warn(msg, fields...)
+	}
+}
+
+func DownloaderError(msg string, fields ...zap.Field) {
+	if DownloaderLogger != nil {
+		DownloaderLogger.Error(msg, fields...)
+	}
+}
+
+// Downloader 便捷方法 - 格式化日志
+func DownloaderDebugf(template string, args ...interface{}) {
+	if DownloaderSugar != nil {
+		DownloaderSugar.Debugf(template, args...)
+	}
+}
+
+func DownloaderInfof(template string, args ...interface{}) {
+	if DownloaderSugar != nil {
+		DownloaderSugar.Infof(template, args...)
+	}
+}
+
+func DownloaderWarnf(template string, args ...interface{}) {
+	if DownloaderSugar != nil {
+		DownloaderSugar.Warnf(template, args...)
+	}
+}
+
+func DownloaderErrorf(template string, args ...interface{}) {
+	if DownloaderSugar != nil {
+		DownloaderSugar.Errorf(template, args...)
+	}
 }
