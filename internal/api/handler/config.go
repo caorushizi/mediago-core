@@ -40,19 +40,40 @@ func (h *ConfigHandler) Update(c *gin.Context) {
 		return
 	}
 
-	logger.Info("Config update request received",
-		zap.Int("maxRunner", req.MaxRunner),
-		zap.String("proxy", req.Proxy),
-		zap.String("clientIP", c.ClientIP()))
-
-	if req.MaxRunner > 0 {
-		h.queue.SetMaxRunner(req.MaxRunner)
-		logger.Info("Max runner updated", zap.Int("maxRunner", req.MaxRunner))
+	fields := []zap.Field{zap.String("clientIP", c.ClientIP())}
+	if req.MaxRunner != nil {
+		fields = append(fields, zap.Int("maxRunner", *req.MaxRunner))
+	}
+	if req.Proxy != nil {
+		fields = append(fields, zap.String("proxy", *req.Proxy))
+	}
+	if req.LocalDir != nil {
+		fields = append(fields, zap.String("localDir", *req.LocalDir))
+	}
+	if req.DeleteSegments != nil {
+		fields = append(fields, zap.Bool("deleteSegments", *req.DeleteSegments))
 	}
 
-	if req.Proxy != "" {
-		h.queue.SetProxy(req.Proxy)
-		logger.Info("Proxy updated", zap.String("proxy", req.Proxy))
+	logger.Info("Config update request received", fields...)
+
+	if req.MaxRunner != nil && *req.MaxRunner > 0 {
+		h.queue.SetMaxRunner(*req.MaxRunner)
+		logger.Info("Max runner updated", zap.Int("maxRunner", *req.MaxRunner))
+	}
+
+	if req.LocalDir != nil {
+		h.queue.SetLocalDir(*req.LocalDir)
+		logger.Info("Local directory updated", zap.String("localDir", *req.LocalDir))
+	}
+
+	if req.DeleteSegments != nil {
+		h.queue.SetDeleteSegments(*req.DeleteSegments)
+		logger.Info("Delete segments flag updated", zap.Bool("deleteSegments", *req.DeleteSegments))
+	}
+
+	if req.Proxy != nil {
+		h.queue.SetProxy(*req.Proxy)
+		logger.Info("Proxy updated", zap.String("proxy", *req.Proxy))
 	}
 
 	c.JSON(http.StatusOK, dto.UpdateConfigResponse{Message: "Config updated"})

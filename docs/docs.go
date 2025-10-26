@@ -26,7 +26,7 @@ const docTemplate = `{
     "paths": {
         "/config": {
             "post": {
-                "description": "更新系统配置，包括最大并发下载数和代理设置",
+                "description": "更新系统配置，包括最大并发下载数、代理、本地保存目录和分段清理设置",
                 "consumes": [
                     "application/json"
                 ],
@@ -341,17 +341,11 @@ const docTemplate = `{
         "dto.CreateTaskRequest": {
             "type": "object",
             "required": [
-                "localDir",
                 "name",
                 "type",
                 "url"
             ],
             "properties": {
-                "deleteSegments": {
-                    "description": "是否删除分段文件",
-                    "type": "boolean",
-                    "example": true
-                },
                 "folder": {
                     "description": "子文件夹",
                     "type": "string",
@@ -372,20 +366,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "task-1"
                 },
-                "localDir": {
-                    "description": "本地保存目录",
-                    "type": "string",
-                    "example": "/downloads"
-                },
                 "name": {
                     "description": "文件名",
                     "type": "string",
                     "example": "video.mp4"
-                },
-                "proxy": {
-                    "description": "代理地址",
-                    "type": "string",
-                    "example": "http://proxy.com:8080"
                 },
                 "type": {
                     "description": "下载类型：m3u8/bilibili/direct",
@@ -457,6 +441,16 @@ const docTemplate = `{
         "dto.UpdateConfigRequest": {
             "type": "object",
             "properties": {
+                "deleteSegments": {
+                    "description": "是否删除分段文件",
+                    "type": "boolean",
+                    "example": true
+                },
+                "localDir": {
+                    "description": "全局本地保存目录",
+                    "type": "string",
+                    "example": "/downloads"
+                },
                 "maxRunner": {
                     "description": "最大并发下载数",
                     "type": "integer",

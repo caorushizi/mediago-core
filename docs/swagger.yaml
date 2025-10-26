@@ -70,10 +70,6 @@ definitions:
     - StatusStopped
   dto.CreateTaskRequest:
     properties:
-      deleteSegments:
-        description: 是否删除分段文件
-        example: true
-        type: boolean
       folder:
         description: 子文件夹
         example: movies
@@ -89,17 +85,9 @@ definitions:
         description: 任务ID（可选，不提供时自动生成）
         example: task-1
         type: string
-      localDir:
-        description: 本地保存目录
-        example: /downloads
-        type: string
       name:
         description: 文件名
         example: video.mp4
-        type: string
-      proxy:
-        description: 代理地址
-        example: http://proxy.com:8080
         type: string
       type:
         description: 下载类型：m3u8/bilibili/direct
@@ -113,7 +101,6 @@ definitions:
         example: https://example.com
         type: string
     required:
-    - localDir
     - name
     - type
     - url
@@ -156,6 +143,14 @@ definitions:
     type: object
   dto.UpdateConfigRequest:
     properties:
+      deleteSegments:
+        description: 是否删除分段文件
+        example: true
+        type: boolean
+      localDir:
+        description: 全局本地保存目录
+        example: /downloads
+        type: string
       maxRunner:
         description: 最大并发下载数
         example: 3
@@ -193,7 +188,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 更新系统配置，包括最大并发下载数和代理设置
+      description: 更新系统配置，包括最大并发下载数、代理、本地保存目录和分段清理设置
       parameters:
       - description: 配置参数
         in: body

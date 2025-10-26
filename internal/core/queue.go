@@ -24,7 +24,7 @@ type TaskQueue struct {
 	queue  []DownloadParams              // 待执行任务队列
 	active map[TaskID]context.CancelFunc // 活跃任务（任务ID -> 取消函数）
 	tasks  map[TaskID]*TaskInfo          // 任务信息表（任务ID -> 任务信息）
-	proxy  string                        // 全局代理配置
+	config QueueConfig                   // 全局配置
 
 	// 事件回调函数
 	onStart    func(TaskID)
@@ -35,27 +35,64 @@ type TaskQueue struct {
 	onMessage  func(MessageEvent)
 }
 
+// QueueConfig 定义任务队列的全局配置
+type QueueConfig struct {
+	MaxRunner      int
+	LocalDir       string
+	DeleteSegments bool
+	Proxy          string
+}
+
 // NewTaskQueue 创建任务队列实例
-func NewTaskQueue(d Downloader, maxRunner int) *TaskQueue {
+func NewTaskQueue(d Downloader, cfg QueueConfig) *TaskQueue {
+	if cfg.MaxRunner <= 0 {
+		cfg.MaxRunner = 1
+	}
 	return &TaskQueue{
 		downloader: d,
-		maxRunner:  maxRunner,
+		maxRunner:  cfg.MaxRunner,
 		active:     make(map[TaskID]context.CancelFunc),
 		tasks:      make(map[TaskID]*TaskInfo),
+		config:     cfg,
 	}
 }
 
 // SetProxy 设置全局代理
 func (q *TaskQueue) SetProxy(p string) {
 	q.mu.Lock()
-	q.proxy = p
+	q.config.Proxy = p
 	q.mu.Unlock()
+}
+
+// SetLocalDir 设置全局下载目录
+func (q *TaskQueue) SetLocalDir(dir string) {
+	q.mu.Lock()
+	q.config.LocalDir = dir
+	q.mu.Unlock()
+}
+
+// SetDeleteSegments 设置是否删除分段文件
+func (q *TaskQueue) SetDeleteSegments(del bool) {
+	q.mu.Lock()
+	q.config.DeleteSegments = del
+	q.mu.Unlock()
+}
+
+// Config 返回当前的全局配置
+func (q *TaskQueue) Config() QueueConfig {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	cfg := q.config
+	cfg.MaxRunner = q.maxRunner
+	return cfg
 }
 
 // SetMaxRunner 设置最大并发数
 func (q *TaskQueue) SetMaxRunner(n int) {
 	q.mu.Lock()
 	q.maxRunner = n
+	q.config.MaxRunner = n
 	q.mu.Unlock()
 	q.tryRun()
 }
@@ -150,7 +187,7 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	// 注册到活跃任务表
 	q.mu.Lock()
 	q.active[p.ID] = cancel
-	proxy := q.proxy
+	cfg := q.config
 	activeCount := len(q.active)
 	q.mu.Unlock()
 
@@ -158,13 +195,18 @@ func (q *TaskQueue) execute(p DownloadParams) {
 		zap.String("id", string(p.ID)),
 		zap.Int("activeCount", activeCount))
 
-	// 应用全局代理配置
-	if proxy != "" {
-		p.Proxy = proxy
-		logger.Debug("Applied global proxy to task",
-			zap.String("id", string(p.ID)),
-			zap.String("proxy", proxy))
+	// 应用全局配置
+	if cfg.LocalDir != "" {
+		p.LocalDir = cfg.LocalDir
 	}
+	p.DeleteSegments = cfg.DeleteSegments
+	p.Proxy = cfg.Proxy
+
+	logger.Debug("Applied global config to task",
+		zap.String("id", string(p.ID)),
+		zap.String("localDir", p.LocalDir),
+		zap.Bool("deleteSegments", p.DeleteSegments),
+		zap.String("proxy", p.Proxy))
 
 	// 执行下载
 	err := q.downloader.Download(ctx, p, Callbacks{

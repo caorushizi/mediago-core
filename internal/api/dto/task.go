@@ -4,29 +4,23 @@ import "caorushizi.cn/mediago/internal/core"
 
 // CreateTaskRequest 创建任务请求
 type CreateTaskRequest struct {
-	ID             string   `json:"id" example:"task-1"`                                  // 任务ID（可选，不提供时自动生成）
-	Type           string   `json:"type" binding:"required,oneof=m3u8 bilibili direct"`   // 下载类型：m3u8/bilibili/direct
-	URL            string   `json:"url" binding:"required" example:"https://example.com"` // 下载URL
-	LocalDir       string   `json:"localDir" binding:"required" example:"/downloads"`     // 本地保存目录
-	Name           string   `json:"name" binding:"required" example:"video.mp4"`          // 文件名
-	DeleteSegments bool     `json:"deleteSegments" example:"true"`                        // 是否删除分段文件
-	Headers        []string `json:"headers" example:"User-Agent: Mozilla/5.0"`            // 自定义HTTP头
-	Proxy          string   `json:"proxy" example:"http://proxy.com:8080"`                // 代理地址
-	Folder         string   `json:"folder" example:"movies"`                              // 子文件夹
+	ID      string   `json:"id" example:"task-1"`                                  // 任务ID（可选，不提供时自动生成）
+	Type    string   `json:"type" binding:"required,oneof=m3u8 bilibili direct"`   // 下载类型：m3u8/bilibili/direct
+	URL     string   `json:"url" binding:"required" example:"https://example.com"` // 下载URL
+	Name    string   `json:"name" binding:"required" example:"video.mp4"`          // 文件名
+	Headers []string `json:"headers" example:"User-Agent: Mozilla/5.0"`            // 自定义HTTP头
+	Folder  string   `json:"folder" example:"movies"`                              // 子文件夹
 }
 
 // ToDownloadParams converts request payload to core download params.
 func (r CreateTaskRequest) ToDownloadParams() core.DownloadParams {
 	return core.DownloadParams{
-		ID:             core.TaskID(r.ID),
-		Type:           core.DownloadType(r.Type),
-		URL:            r.URL,
-		LocalDir:       r.LocalDir,
-		Name:           r.Name,
-		DeleteSegments: r.DeleteSegments,
-		Headers:        append([]string(nil), r.Headers...),
-		Proxy:          r.Proxy,
-		Folder:         r.Folder,
+		ID:      core.TaskID(r.ID),
+		Type:    core.DownloadType(r.Type),
+		URL:     r.URL,
+		Name:    r.Name,
+		Headers: append([]string(nil), r.Headers...),
+		Folder:  r.Folder,
 	}
 }
 

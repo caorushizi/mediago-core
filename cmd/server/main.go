@@ -4,6 +4,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"caorushizi.cn/mediago/internal/api"
 	"caorushizi.cn/mediago/internal/core"
@@ -11,6 +12,7 @@ import (
 	"caorushizi.cn/mediago/internal/core/schema"
 	"caorushizi.cn/mediago/internal/logger"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	_ "caorushizi.cn/mediago/docs" // Swagger 文档
 )
@@ -79,9 +81,20 @@ func main() {
 	// 4. 创建核心组件
 	r := runner.NewPTYRunner()
 	downloader := core.NewDownloader(binMap, r, schemas)
-	queue := core.NewTaskQueue(downloader, 2) // 默认并发数：2
+	queueCfg := core.QueueConfig{
+		MaxRunner:      getEnvAsInt("MEDIAGO_MAX_RUNNER", 2),
+		LocalDir:       getEnv("MEDIAGO_LOCAL_DIR", "./downloads"),
+		DeleteSegments: getEnvAsBool("MEDIAGO_DELETE_SEGMENTS", false),
+		Proxy:          getEnv("MEDIAGO_PROXY", ""),
+	}
 
-	logger.Info("Task queue initialized (maxRunner=2)")
+	queue := core.NewTaskQueue(downloader, queueCfg)
+
+	logger.Info("Task queue initialized with defaults",
+		zap.Int("maxRunner", queueCfg.MaxRunner),
+		zap.String("localDir", queueCfg.LocalDir),
+		zap.Bool("deleteSegments", queueCfg.DeleteSegments),
+		zap.String("proxy", queueCfg.Proxy))
 
 	// 5. 启动 HTTP 服务器
 	server := api.NewServer(queue)
@@ -135,6 +148,24 @@ func getBinaryMap() map[core.DownloadType]string {
 func getEnv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return def
+}
+
+func getEnvAsInt(key string, def int) int {
+	if v := os.Getenv(key); v != "" {
+		if iv, err := strconv.Atoi(v); err == nil {
+			return iv
+		}
+	}
+	return def
+}
+
+func getEnvAsBool(key string, def bool) bool {
+	if v := os.Getenv(key); v != "" {
+		if bv, err := strconv.ParseBool(v); err == nil {
+			return bv
+		}
 	}
 	return def
 }
