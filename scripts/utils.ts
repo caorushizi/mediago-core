@@ -146,7 +146,7 @@ export function writeTextFile(filePath: string, content: string): void {
  */
 export async function runCommand(command: string, description?: string): Promise<void> {
   if (description) {
-    console.log(`\n▶ ${description}`);
+    console.log(`\n▶ ${description}: ${command}`);
   }
 
   return new Promise((resolve, reject) => {
