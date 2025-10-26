@@ -2,6 +2,7 @@ package serverapp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -33,6 +34,10 @@ func Run(rawConfig string) error {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer logger.Sync()
+
+	if err := writeDefaultConfigTemplate(); err != nil {
+		logger.Warnf("failed to write default config template: %v", err)
+	}
 
 	logger.Info("MediaGo Downloader Service Starting...")
 
@@ -94,7 +99,7 @@ func startHTTPServer(cfg appConfig, queue *core.TaskQueue) error {
 	server := api.NewServer(queue)
 	addr := buildListenAddr(cfg)
 
-	ginMode := cfg.Mode
+	ginMode := getEnv("GIN_MODE", cfg.Mode)
 	if strings.TrimSpace(ginMode) == "" {
 		ginMode = defaultMode
 	}
@@ -256,4 +261,35 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func writeDefaultConfigTemplate() error {
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve executable path: %w", err)
+	}
+
+	execDir := filepath.Dir(execPath)
+	configPath := filepath.Join(execDir, "config.default.json")
+
+	if _, err := os.Stat(configPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("check default config file: %w", err)
+	}
+
+	cfg := defaultAppConfig()
+	cfg.applyDefaults()
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal default config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		return fmt.Errorf("write default config: %w", err)
+	}
+
+	logger.Infof("Default config template created at %s", configPath)
+	return nil
 }
