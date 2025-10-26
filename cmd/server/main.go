@@ -2,6 +2,8 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"os"
 	"path/filepath"
 
@@ -42,16 +44,65 @@ import (
 // @tag.name Events
 // @tag.description 实时事件推送相关接口
 
-func main() {
-	// Read config from env/flags
-	mode := getEnv("GIN_MODE", "release") // "debug" / "release" / "test"
-	defaultHost := getEnv("HOST", "0.0.0.0")
-	defaultPort := getEnv("PORT", "8080")
+// AppConfig 存储所有配置项
+type AppConfig struct {
+	GinMode        string `json:"gin_mode"`
+	Host           string `json:"host"`
+	Port           string `json:"port"`
+	LogLevel       string `json:"log_level"`
+	LogDir         string `json:"log_dir"`
+	SchemaPath     string `json:"schema_path"`
+	M3U8Bin        string `json:"m3u8_bin"`
+	BilibiliBin    string `json:"bilibili_bin"`
+	DirectBin      string `json:"direct_bin"`
+	MaxRunner      int    `json:"max_runner"`
+	LocalDir       string `json:"local_dir"`
+	DeleteSegments bool   `json:"delete_segments"`
+	Proxy          string `json:"proxy"`
+	UseProxy       bool   `json:"use_proxy"`
+	ConfigString   string `json:"-"` // 用于接收命令行的 JSON 字符串，不参与 JSON 解析
+}
 
-	// 1. 初始化日志系统
+func (c *AppConfig) GetLocalDir() string {
+	return c.LocalDir
+}
+
+func (c *AppConfig) GetDeleteSegments() bool {
+	return c.DeleteSegments
+}
+
+func (c *AppConfig) GetProxy() string {
+	return c.Proxy
+}
+
+func (c *AppConfig) GetUseProxy() bool {
+	return c.UseProxy
+}
+
+func (c *AppConfig) SetLocalDir(dir string) {
+	c.LocalDir = dir
+}
+
+func (c *AppConfig) SetDeleteSegments(del bool) {
+	c.DeleteSegments = del
+}
+
+func (c *AppConfig) SetProxy(proxy string) {
+	c.Proxy = proxy
+}
+
+func (c *AppConfig) SetUseProxy(useProxy bool) {
+	c.UseProxy = useProxy
+}
+
+func main() {
+	// 1. 初始化和解析配置
+	cfg := initConfig()
+
+	// 2. 初始化日志系统
 	logCfg := logger.DefaultConfig()
-	logCfg.Level = getEnv("MEDIAGO_LOG_LEVEL", "info")
-	logCfg.LogDir = getEnv("MEDIAGO_LOG_DIR", "./logs")
+	logCfg.Level = cfg.LogLevel
+	logCfg.LogDir = cfg.LogDir
 
 	if err := logger.Init(logCfg); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
@@ -59,56 +110,105 @@ func main() {
 	defer logger.Sync()
 
 	logger.Info("MediaGo Downloader Service Starting...")
+	logger.Infof("Final Config: %+v", cfg)
 
-	// 2. 加载 JSON Schema 配置
-	schemaPath := getConfigPath()
-	logger.Infof("Loading schemas from: %s", schemaPath)
-
-	schemas, err := schema.LoadSchemasFromJSON(schemaPath)
+	// 3. 加载 JSON Schema 配置
+	logger.Infof("Loading schemas from: %s", cfg.SchemaPath)
+	schemas, err := schema.LoadSchemasFromJSON(cfg.SchemaPath)
 	if err != nil {
 		logger.Fatalf("Failed to load schemas: %v", err)
 	}
 	logger.Infof("Loaded %d download schemas", len(schemas.Schemas))
 
-	// 3. 配置下载器二进制路径
-	binMap := getBinaryMap()
+	// 4. 配置下载器二进制路径
+	binMap := getBinaryMap(cfg)
 	for dt, path := range binMap {
 		logger.Infof("%s downloader: %s", dt, path)
 	}
 
-	// 4. 创建核心组件
+	// 5. 创建核心组件
 	r := runner.NewPTYRunner()
-	downloader := core.NewDownloader(binMap, r, schemas)
-	queue := core.NewTaskQueue(downloader, 2) // 默认并发数：2
+	downloader := core.NewDownloader(binMap, r, schemas, cfg)
+	queue := core.NewTaskQueue(downloader, cfg.MaxRunner)
 
-	logger.Info("Task queue initialized (maxRunner=2)")
+	logger.Infof("Task queue initialized (maxRunner=%d)", cfg.MaxRunner)
 
-	// 5. 启动 HTTP 服务器
+	// 6. 启动 HTTP 服务器
 	server := api.NewServer(queue)
-	addr := defaultHost + ":" + defaultPort
-	gin.SetMode(mode)
+	addr := cfg.Host + ":" + cfg.Port
+	gin.SetMode(cfg.GinMode)
 	logger.Infof("Starting HTTP server on %s", addr)
-	logger.Info("API Endpoints:")
-	logger.Info("  GET  /healthy            - Health check")
-	logger.Info("  POST /api/tasks          - Create download task")
-	logger.Info("  GET  /api/tasks          - Get all tasks status")
-	logger.Info("  GET  /api/tasks/:id      - Get task status")
-	logger.Info("  POST /api/tasks/:id/stop - Stop task")
-	logger.Info("  POST /api/config         - Update config")
-	logger.Info("  GET  /api/events         - SSE event stream (status changes only)")
-	logger.Info("Swagger Documentation:")
-	logger.Infof("  http://%s/swagger/index.html", addr)
 
 	if err := server.Run(addr); err != nil {
 		logger.Fatalf("Failed to start server: %v", err)
 	}
 }
 
-// getConfigPath 获取配置文件路径
-func getConfigPath() string {
-	if path := os.Getenv("MEDIAGO_SCHEMA_PATH"); path != "" {
-		return path
+// initConfig 初始化配置，遵循优先级：命令行 > 环境变量 > JSON字符串 > 默认值
+func initConfig() *AppConfig {
+	// 默认配置
+	cfg := &AppConfig{
+		GinMode:        "release",
+		Host:           "0.0.0.0",
+		Port:           "8080",
+		LogLevel:       "info",
+		LogDir:         "./logs",
+		SchemaPath:     "", // 稍后计算默认值
+		M3U8Bin:        "/usr/local/bin/N_m3u8DL-RE",
+		BilibiliBin:    "/usr/local/bin/BBDown",
+		DirectBin:      "/usr/local/bin/aria2c",
+		MaxRunner:      2,
+		LocalDir:       "./downloads",
+		DeleteSegments: true,
+		Proxy:          "",
+		UseProxy:       false,
 	}
+
+	// 1. 从命令行 JSON 字符串加载（优先级最低）
+	flag.StringVar(&cfg.ConfigString, "config", "", "JSON string for configuration")
+
+	// 2. 定义其他命令行标志
+	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Log level (debug/info/warn/error)")
+	flag.StringVar(&cfg.LogDir, "log-dir", cfg.LogDir, "Log directory")
+	flag.StringVar(&cfg.M3U8Bin, "m3u8-bin", cfg.M3U8Bin, "M3U8 downloader binary path")
+	flag.StringVar(&cfg.BilibiliBin, "bilibili-bin", cfg.BilibiliBin, "Bilibili downloader binary path")
+	flag.StringVar(&cfg.DirectBin, "direct-bin", cfg.DirectBin, "Direct downloader binary path")
+	flag.StringVar(&cfg.SchemaPath, "schema-path", cfg.SchemaPath, "Path to the download schema config.json")
+	flag.StringVar(&cfg.Port, "port", cfg.Port, "Server port")
+	flag.StringVar(&cfg.LocalDir, "local-dir", cfg.LocalDir, "Default download directory")
+	flag.BoolVar(&cfg.DeleteSegments, "delete-segments", cfg.DeleteSegments, "Delete segments after download")
+	flag.StringVar(&cfg.Proxy, "proxy", cfg.Proxy, "Proxy for downloader")
+	flag.BoolVar(&cfg.UseProxy, "use-proxy", cfg.UseProxy, "Enable proxy")
+	flag.Parse()
+
+	// 如果提供了 -config JSON 字符串，则解析它
+	if cfg.ConfigString != "" {
+		if err := json.Unmarshal([]byte(cfg.ConfigString), cfg); err != nil {
+			// 使用初始化的 logger 可能会有问题，因为此时 logger 还没完全配置好
+			// 但为了可见性，我们还是尝试记录错误
+			logger.Warnf("Failed to parse -config JSON string, error: %v. Using defaults and other flags.", err)
+		}
+	}
+
+	// 3. 从环境变量加载（会覆盖 JSON 和默认值）
+	cfg.GinMode = getEnv("GIN_MODE", cfg.GinMode)
+	cfg.Host = getEnv("HOST", cfg.Host)
+	cfg.Port = getEnv("PORT", cfg.Port)
+
+	// 4. 重新解析命令行标志，使其优先级最高
+	// Re-parse the flags to ensure command-line values override all previous settings.
+	flag.Parse()
+
+	// 如果 SchemaPath 仍然为空，则计算其默认值
+	if cfg.SchemaPath == "" {
+		cfg.SchemaPath = getDefaultSchemaPath()
+	}
+
+	return cfg
+}
+
+// getDefaultSchemaPath 获取配置文件的默认路径
+func getDefaultSchemaPath() string {
 	// 默认路径：优先使用可执行文件所在目录下的 config.json
 	execPath, _ := os.Executable()
 	execDir := filepath.Dir(execPath)
@@ -117,19 +217,16 @@ func getConfigPath() string {
 		return localConfig
 	}
 	// 回退到仓库内的配置文件路径
-	return filepath.Join(execDir, "..", "..", "configs", "config.json")
+	return "configs/config.json"
 }
 
-// getBinaryMap 获取下载器二进制路径映射
-func getBinaryMap() map[core.DownloadType]string {
-	binMap := make(map[core.DownloadType]string)
-
-	// 从环境变量读取，或使用默认路径
-	binMap[core.TypeM3U8] = getEnv("MEDIAGO_M3U8_BIN", "/usr/local/bin/N_m3u8DL-RE")
-	binMap[core.TypeBilibili] = getEnv("MEDIAGO_BILIBILI_BIN", "/usr/local/bin/BBDown")
-	binMap[core.TypeDirect] = getEnv("MEDIAGO_DIRECT_BIN", "/usr/local/bin/aria2c")
-
-	return binMap
+// getBinaryMap 从配置中获取下载器二进制路径映射
+func getBinaryMap(cfg *AppConfig) map[core.DownloadType]string {
+	return map[core.DownloadType]string{
+		core.TypeM3U8:     cfg.M3U8Bin,
+		core.TypeBilibili: cfg.BilibiliBin,
+		core.TypeDirect:   cfg.DirectBin,
+	}
 }
 
 func getEnv(key, def string) string {

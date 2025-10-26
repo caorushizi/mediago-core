@@ -47,7 +47,7 @@ func (h *EventHandler) Stream(c *gin.Context) {
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		logger.Error("SSE streaming not supported")
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "streaming not supported"})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Success: false, Code: http.StatusInternalServerError, Message: "Failed to create event stream"})
 		return
 	}
 

@@ -1,39 +1,41 @@
 package dto
 
-import "caorushizi.cn/mediago/internal/core"
+import (
+	"caorushizi.cn/mediago/internal/core"
+	"github.com/google/uuid"
+)
 
-// CreateTaskRequest 创建任务请求
-type CreateTaskRequest struct {
-	ID             string   `json:"id" example:"task-1"`                                  // 任务ID（可选，不提供时自动生成）
-	Type           string   `json:"type" binding:"required,oneof=m3u8 bilibili direct"`   // 下载类型：m3u8/bilibili/direct
-	URL            string   `json:"url" binding:"required" example:"https://example.com"` // 下载URL
-	LocalDir       string   `json:"localDir" binding:"required" example:"/downloads"`     // 本地保存目录
-	Name           string   `json:"name" binding:"required" example:"video.mp4"`          // 文件名
-	DeleteSegments bool     `json:"deleteSegments" example:"true"`                        // 是否删除分段文件
-	Headers        []string `json:"headers" example:"User-Agent: Mozilla/5.0"`            // 自定义HTTP头
-	Proxy          string   `json:"proxy" example:"http://proxy.com:8080"`                // 代理地址
-	Folder         string   `json:"folder" example:"movies"`                              // 子文件夹
+// CreateTaskReq 创建任务请求 DTO
+type CreateTaskReq struct {
+	ID      string            `json:"id,omitempty" example:"my-custom-id"`      // (可选) 自定义任务 ID
+	Type    core.DownloadType `json:"type" binding:"required" example:"m3u8"`       // 下载类型
+	URL     string            `json:"url" binding:"required" example:"https://example.com/video.m3u8"` // 下载 URL
+	Name    string            `json:"name" binding:"required" example:"video"`          // 文件名
+	Folder  string            `json:"folder" example:"movies"`                                // 子文件夹
+	Headers []string          `json:"headers" example:"User-Agent: custom"`                   // HTTP 请求头
 }
 
-// ToDownloadParams converts request payload to core download params.
-func (r CreateTaskRequest) ToDownloadParams() core.DownloadParams {
+// ToDownloadParams 转换为核心下载参数
+func (r *CreateTaskReq) ToDownloadParams() core.DownloadParams {
+	id := r.ID
+	if id == "" {
+		id = uuid.New().String()
+	}
 	return core.DownloadParams{
-		ID:             core.TaskID(r.ID),
-		Type:           core.DownloadType(r.Type),
-		URL:            r.URL,
-		LocalDir:       r.LocalDir,
-		Name:           r.Name,
-		DeleteSegments: r.DeleteSegments,
-		Headers:        append([]string(nil), r.Headers...),
-		Proxy:          r.Proxy,
-		Folder:         r.Folder,
+		ID:      core.TaskID(id),
+		Type:    r.Type,
+		URL:     r.URL,
+		Name:    r.Name,
+		Folder:  r.Folder,
+		Headers: r.Headers,
 	}
 }
 
 // CreateTaskResponse 创建任务响应
 type CreateTaskResponse struct {
-	ID      string `json:"id" example:"task-1"`                          // 任务ID
-	Message string `json:"message" example:"Task enqueued successfully"` // 响应消息
+	ID      string `json:"id"`      // 任务ID
+	Message string `json:"message"` // 响应消息
+	Status  string `json:"status"`  // 任务状态 (pending/success)
 }
 
 // TaskListResponse 任务列表响应

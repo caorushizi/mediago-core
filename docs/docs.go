@@ -26,7 +26,7 @@ const docTemplate = `{
     "paths": {
         "/config": {
             "post": {
-                "description": "更新系统配置，包括最大并发下载数和代理设置",
+                "description": "更新系统配置，包括最大并发下载数、下载目录、代理、代理开关等、下载目录、代理等",
                 "consumes": [
                     "application/json"
                 ],
@@ -44,7 +44,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateConfigRequest"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest"
                         }
                     }
                 ],
@@ -52,13 +52,13 @@ const docTemplate = `{
                     "200": {
                         "description": "配置更新成功",
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateConfigResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse"
                         }
                     }
                 }
@@ -86,9 +86,12 @@ const docTemplate = `{
         },
         "/healthy": {
             "get": {
-                "description": "服务健康检查接口，用于监控服务是否正常运行",
+                "description": "检查服务是否正常运行",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
-                    "text/plain"
+                    "application/json"
                 ],
                 "tags": [
                     "Health"
@@ -96,9 +99,9 @@ const docTemplate = `{
                 "summary": "健康检查",
                 "responses": {
                     "200": {
-                        "description": "ok",
+                        "description": "服务正常",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
                         }
                     }
                 }
@@ -121,13 +124,13 @@ const docTemplate = `{
                     "200": {
                         "description": "任务列表",
                         "schema": {
-                            "$ref": "#/definitions/dto.TaskListResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
                         }
                     }
                 }
             },
             "post": {
-                "description": "创建一个新的下载任务并加入队列\n支持 M3U8、Bilibili、Direct 三种下载类型",
+                "description": "创建一个新的下载任务并加入队列，可选择性提供任务 ID\n支持 M3U8、Bilibili、Direct 三种下载类型",
                 "consumes": [
                     "application/json"
                 ],
@@ -145,21 +148,21 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateTaskRequest"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.CreateTaskReq"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "任务创建成功",
+                        "description": "任务创建成功，返回任务状态 (pending/success)",
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateTaskResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.CreateTaskResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse"
                         }
                     }
                 }
@@ -192,13 +195,13 @@ const docTemplate = `{
                     "200": {
                         "description": "任务信息",
                         "schema": {
-                            "$ref": "#/definitions/core.TaskInfo"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
                         }
                     },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse"
                         }
                     }
                 }
@@ -231,13 +234,13 @@ const docTemplate = `{
                     "200": {
                         "description": "任务停止成功",
                         "schema": {
-                            "$ref": "#/definitions/dto.StopTaskResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
                         }
                     },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse"
                         }
                     }
                 }
@@ -245,7 +248,141 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "core.DownloadType": {
+        "caorushizi_cn_mediago_internal_api_dto.CreateTaskReq": {
+            "type": "object",
+            "required": [
+                "name",
+                "type",
+                "url"
+            ],
+            "properties": {
+                "folder": {
+                    "description": "子文件夹",
+                    "type": "string",
+                    "example": "movies"
+                },
+                "headers": {
+                    "description": "HTTP 请求头",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "User-Agent: custom"
+                    ]
+                },
+                "id": {
+                    "description": "(可选) 自定义任务 ID",
+                    "type": "string",
+                    "example": "my-custom-id"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string",
+                    "example": "video"
+                },
+                "type": {
+                    "description": "下载类型",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.DownloadType"
+                        }
+                    ],
+                    "example": "m3u8"
+                },
+                "url": {
+                    "description": "下载 URL",
+                    "type": "string",
+                    "example": "https://example.com/video.m3u8"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.CreateTaskResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "任务ID",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "响应消息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "任务状态 (pending/success)",
+                    "type": "string"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.SuccessResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 200
+                },
+                "data": {},
+                "message": {
+                    "type": "string",
+                    "example": "OK"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest": {
+            "type": "object",
+            "properties": {
+                "deleteSegments": {
+                    "description": "是否删除分段",
+                    "type": "boolean"
+                },
+                "localDir": {
+                    "description": "本地保存目录",
+                    "type": "string"
+                },
+                "maxRunner": {
+                    "description": "最大并发下载数",
+                    "type": "integer"
+                },
+                "proxy": {
+                    "description": "代理地址",
+                    "type": "string"
+                },
+                "useProxy": {
+                    "description": "是否使用代理",
+                    "type": "boolean"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.UpdateConfigResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Config updated"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_core.DownloadType": {
             "type": "string",
             "enum": [
                 "m3u8",
@@ -257,227 +394,6 @@ const docTemplate = `{
                 "TypeBilibili",
                 "TypeDirect"
             ]
-        },
-        "core.TaskInfo": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "description": "错误信息（如果有）",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "任务ID",
-                    "type": "string"
-                },
-                "isLive": {
-                    "description": "是否为直播流",
-                    "type": "boolean"
-                },
-                "name": {
-                    "description": "文件名",
-                    "type": "string"
-                },
-                "percent": {
-                    "description": "完成百分比",
-                    "type": "number"
-                },
-                "speed": {
-                    "description": "下载速度",
-                    "type": "string"
-                },
-                "status": {
-                    "description": "任务状态",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/core.TaskStatus"
-                        }
-                    ]
-                },
-                "type": {
-                    "description": "下载类型",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/core.DownloadType"
-                        }
-                    ]
-                },
-                "url": {
-                    "description": "下载URL",
-                    "type": "string"
-                }
-            }
-        },
-        "core.TaskStatus": {
-            "type": "string",
-            "enum": [
-                "pending",
-                "downloading",
-                "success",
-                "failed",
-                "stopped"
-            ],
-            "x-enum-comments": {
-                "StatusDownloading": "下载中",
-                "StatusFailed": "失败",
-                "StatusPending": "等待中",
-                "StatusStopped": "已停止",
-                "StatusSuccess": "成功完成"
-            },
-            "x-enum-descriptions": [
-                "等待中",
-                "下载中",
-                "成功完成",
-                "失败",
-                "已停止"
-            ],
-            "x-enum-varnames": [
-                "StatusPending",
-                "StatusDownloading",
-                "StatusSuccess",
-                "StatusFailed",
-                "StatusStopped"
-            ]
-        },
-        "dto.CreateTaskRequest": {
-            "type": "object",
-            "required": [
-                "localDir",
-                "name",
-                "type",
-                "url"
-            ],
-            "properties": {
-                "deleteSegments": {
-                    "description": "是否删除分段文件",
-                    "type": "boolean",
-                    "example": true
-                },
-                "folder": {
-                    "description": "子文件夹",
-                    "type": "string",
-                    "example": "movies"
-                },
-                "headers": {
-                    "description": "自定义HTTP头",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "User-Agent: Mozilla/5.0"
-                    ]
-                },
-                "id": {
-                    "description": "任务ID（可选，不提供时自动生成）",
-                    "type": "string",
-                    "example": "task-1"
-                },
-                "localDir": {
-                    "description": "本地保存目录",
-                    "type": "string",
-                    "example": "/downloads"
-                },
-                "name": {
-                    "description": "文件名",
-                    "type": "string",
-                    "example": "video.mp4"
-                },
-                "proxy": {
-                    "description": "代理地址",
-                    "type": "string",
-                    "example": "http://proxy.com:8080"
-                },
-                "type": {
-                    "description": "下载类型：m3u8/bilibili/direct",
-                    "type": "string",
-                    "enum": [
-                        "m3u8",
-                        "bilibili",
-                        "direct"
-                    ]
-                },
-                "url": {
-                    "description": "下载URL",
-                    "type": "string",
-                    "example": "https://example.com"
-                }
-            }
-        },
-        "dto.CreateTaskResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "description": "任务ID",
-                    "type": "string",
-                    "example": "task-1"
-                },
-                "message": {
-                    "description": "响应消息",
-                    "type": "string",
-                    "example": "Task enqueued successfully"
-                }
-            }
-        },
-        "dto.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "description": "错误信息",
-                    "type": "string",
-                    "example": "invalid request"
-                }
-            }
-        },
-        "dto.StopTaskResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "description": "响应消息",
-                    "type": "string",
-                    "example": "Task stopped"
-                }
-            }
-        },
-        "dto.TaskListResponse": {
-            "type": "object",
-            "properties": {
-                "tasks": {
-                    "description": "任务列表",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/core.TaskInfo"
-                    }
-                },
-                "total": {
-                    "description": "总数量",
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.UpdateConfigRequest": {
-            "type": "object",
-            "properties": {
-                "maxRunner": {
-                    "description": "最大并发下载数",
-                    "type": "integer",
-                    "example": 3
-                },
-                "proxy": {
-                    "description": "代理服务器地址",
-                    "type": "string",
-                    "example": "http://proxy.com:8080"
-                }
-            }
-        },
-        "dto.UpdateConfigResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "description": "响应消息",
-                    "type": "string",
-                    "example": "Config updated"
-                }
-            }
         }
     },
     "tags": [

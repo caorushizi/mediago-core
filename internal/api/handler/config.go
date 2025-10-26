@@ -20,9 +20,16 @@ func NewConfigHandler(queue *core.TaskQueue) *ConfigHandler {
 	return &ConfigHandler{queue: queue}
 }
 
+type AppConfig interface {
+	SetLocalDir(string)
+	SetDeleteSegments(bool)
+	SetProxy(string)
+	SetUseProxy(bool)
+}
+
 // Update 更新系统配置
 // @Summary 更新系统配置
-// @Description 更新系统配置，包括最大并发下载数和代理设置
+// @Description 更新系统配置，包括最大并发下载数、下载目录、代理、代理开关等、下载目录、代理等
 // @Tags Config
 // @Accept json
 // @Produce json
@@ -36,24 +43,43 @@ func (h *ConfigHandler) Update(c *gin.Context) {
 		logger.Warn("Invalid config update request",
 			zap.String("clientIP", c.ClientIP()),
 			zap.Error(err))
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Success: false, Code: http.StatusBadRequest, Message: err.Error()})
 		return
 	}
 
-	logger.Info("Config update request received",
-		zap.Int("maxRunner", req.MaxRunner),
-		zap.String("proxy", req.Proxy),
-		zap.String("clientIP", c.ClientIP()))
+	logger.Info("Config update request received", zap.Any("req", req), zap.String("clientIP", c.ClientIP()))
 
-	if req.MaxRunner > 0 {
-		h.queue.SetMaxRunner(req.MaxRunner)
-		logger.Info("Max runner updated", zap.Int("maxRunner", req.MaxRunner))
+	if req.MaxRunner != nil {
+		h.queue.SetMaxRunner(*req.MaxRunner)
+		logger.Info("Max runner updated", zap.Int("maxRunner", *req.MaxRunner))
 	}
 
-	if req.Proxy != "" {
-		h.queue.SetProxy(req.Proxy)
-		logger.Info("Proxy updated", zap.String("proxy", req.Proxy))
+	appConfig := h.queue.Downloader().Config().(AppConfig)
+
+	if req.LocalDir != nil {
+		appConfig.SetLocalDir(*req.LocalDir)
+		logger.Info("Local dir updated", zap.String("localDir", *req.LocalDir))
 	}
 
-	c.JSON(http.StatusOK, dto.UpdateConfigResponse{Message: "Config updated"})
+	if req.DeleteSegments != nil {
+		appConfig.SetDeleteSegments(*req.DeleteSegments)
+		logger.Info("Delete segments updated", zap.Bool("deleteSegments", *req.DeleteSegments))
+	}
+
+	if req.Proxy != nil {
+		appConfig.SetProxy(*req.Proxy)
+		logger.Info("Proxy updated", zap.String("proxy", *req.Proxy))
+	}
+
+	if req.UseProxy != nil {
+		appConfig.SetUseProxy(*req.UseProxy)
+		logger.Info("Use proxy updated", zap.Bool("useProxy", *req.UseProxy))
+	}
+
+	c.JSON(http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Code:    http.StatusOK,
+		Message: "Config updated",
+		Data:    dto.UpdateConfigResponse{Message: "Config updated"},
+	})
 }
