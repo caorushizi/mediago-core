@@ -24,16 +24,22 @@ type DownloaderSvc struct {
 	runner  Runner                  // 命令执行器
 	schemas schema.SchemaList       // Schema 配置列表
 	tracker *parser.ProgressTracker // 进度节流器
+	cfg     interface{}             // AppConfig
 }
 
 // NewDownloader 创建下载器服务实例
-func NewDownloader(binMap map[DownloadType]string, runner Runner, schemas schema.SchemaList) *DownloaderSvc {
+func NewDownloader(binMap map[DownloadType]string, runner Runner, schemas schema.SchemaList, cfg interface{}) *DownloaderSvc {
 	return &DownloaderSvc{
 		binMap:  binMap,
 		runner:  runner,
 		schemas: schemas,
 		tracker: parser.NewTracker(),
+		cfg:     cfg,
 	}
+}
+
+func (d *DownloaderSvc) Config() interface{} {
+	return d.cfg
 }
 
 // buildArgs 根据 Schema 构建命令行参数
@@ -59,7 +65,7 @@ func (d *DownloaderSvc) buildArgs(p DownloadParams, s schema.Schema) []string {
 
 		case "localDir":
 			// 本地目录参数：可能需要拼接子文件夹
-			final := p.LocalDir
+			final := d.cfg.(interface{ GetLocalDir() string }).GetLocalDir()
 			if p.Folder != "" {
 				final = filepath.Join(final, p.Folder)
 			}
@@ -87,7 +93,7 @@ func (d *DownloaderSvc) buildArgs(p DownloadParams, s schema.Schema) []string {
 
 		case "deleteSegments":
 			// 删除分段文件参数：显式传递 true/false
-			if p.DeleteSegments {
+			if d.cfg.(interface{ GetDeleteSegments() bool }).GetDeleteSegments() {
 				pushKV(spec.ArgsName, "true")
 			} else {
 				pushKV(spec.ArgsName, "false")
@@ -95,8 +101,10 @@ func (d *DownloaderSvc) buildArgs(p DownloadParams, s schema.Schema) []string {
 
 		case "proxy":
 			// 代理参数：仅在设置时添加
-			if p.Proxy != "" {
-				pushKV(spec.ArgsName, p.Proxy)
+			if d.cfg.(interface{ GetUseProxy() bool }).GetUseProxy() {
+				if proxy := d.cfg.(interface{ GetProxy() string }).GetProxy(); proxy != "" {
+					pushKV(spec.ArgsName, proxy)
+				}
 			}
 
 		case "__common__":
@@ -107,6 +115,7 @@ func (d *DownloaderSvc) buildArgs(p DownloadParams, s schema.Schema) []string {
 
 	return out
 }
+
 
 // guessExtFromURL 从 URL 推断文件扩展名
 func guessExtFromURL(u string) string {

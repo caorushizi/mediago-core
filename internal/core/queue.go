@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"caorushizi.cn/mediago/internal/logger"
 	"go.uber.org/zap"
@@ -24,7 +23,6 @@ type TaskQueue struct {
 	queue  []DownloadParams              // 待执行任务队列
 	active map[TaskID]context.CancelFunc // 活跃任务（任务ID -> 取消函数）
 	tasks  map[TaskID]*TaskInfo          // 任务信息表（任务ID -> 任务信息）
-	proxy  string                        // 全局代理配置
 
 	// 事件回调函数
 	onStart    func(TaskID)
@@ -45,11 +43,14 @@ func NewTaskQueue(d Downloader, maxRunner int) *TaskQueue {
 	}
 }
 
-// SetProxy 设置全局代理
-func (q *TaskQueue) SetProxy(p string) {
-	q.mu.Lock()
-	q.proxy = p
-	q.mu.Unlock()
+func (q *TaskQueue) IsFull() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return len(q.active) >= q.maxRunner
+}
+
+func (q *TaskQueue) Downloader() Downloader {
+	return q.downloader
 }
 
 // SetMaxRunner 设置最大并发数
@@ -61,9 +62,9 @@ func (q *TaskQueue) SetMaxRunner(n int) {
 }
 
 // Enqueue 添加任务到队列
-func (q *TaskQueue) Enqueue(p DownloadParams) {
+func (q *TaskQueue) Enqueue(p DownloadParams) TaskStatus {
 	q.mu.Lock()
-	q.queue = append(q.queue, p)
+
 	// 初始化任务信息
 	q.tasks[p.ID] = &TaskInfo{
 		ID:      p.ID,
@@ -75,16 +76,26 @@ func (q *TaskQueue) Enqueue(p DownloadParams) {
 		Speed:   "",
 		IsLive:  false,
 	}
-	queueLen := len(q.queue)
-	q.mu.Unlock()
 
-	logger.Info("Task enqueued",
-		zap.String("id", string(p.ID)),
-		zap.String("type", string(p.Type)),
-		zap.String("name", p.Name),
-		zap.Int("queueLength", queueLen))
+	if len(q.active) < q.maxRunner {
+		q.tasks[p.ID].Status = StatusDownloading
+		ctx, cancel := context.WithCancel(context.Background())
+		q.active[p.ID] = cancel
+		q.mu.Unlock()
 
-	q.tryRun()
+		logger.Info("Task started immediately", zap.String("id", string(p.ID)))
+		go q.execute(p, ctx)
+		return StatusDownloading
+	} else {
+		q.queue = append(q.queue, p)
+		queueLen := len(q.queue)
+		q.mu.Unlock()
+
+		logger.Info("Task enqueued",
+			zap.String("id", string(p.ID)),
+			zap.Int("queueLength", queueLen))
+		return StatusPending
+	}
 }
 
 // Stop 停止指定任务
@@ -104,30 +115,25 @@ func (q *TaskQueue) Stop(id TaskID) error {
 	return nil
 }
 
-// tryRun 尝试运行队列中的任务（直到达到并发上限）
+// tryRun 尝试运行队列中的任务
 func (q *TaskQueue) tryRun() {
-	for {
-		q.mu.Lock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
-		// 检查是否达到并发上限或队列为空
-		if len(q.active) >= q.maxRunner || len(q.queue) == 0 {
-			q.mu.Unlock()
-			return
-		}
-
-		// 取出队列头部任务
+	if len(q.active) < q.maxRunner && len(q.queue) > 0 {
 		task := q.queue[0]
 		q.queue = q.queue[1:]
 
-		q.mu.Unlock()
+		q.tasks[task.ID].Status = StatusDownloading
+		ctx, cancel := context.WithCancel(context.Background())
+		q.active[task.ID] = cancel
 
-		// 异步执行任务
-		go q.execute(task)
+		go q.execute(task, ctx)
 	}
 }
 
 // execute 执行单个下载任务
-func (q *TaskQueue) execute(p DownloadParams) {
+func (q *TaskQueue) execute(p DownloadParams, ctx context.Context) {
 	logger.Info("Executing task",
 		zap.String("id", string(p.ID)),
 		zap.String("type", string(p.Type)))
@@ -142,28 +148,6 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	// 发送开始事件
 	if q.onStart != nil {
 		q.onStart(p.ID)
-	}
-
-	// 创建可取消的上下文
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// 注册到活跃任务表
-	q.mu.Lock()
-	q.active[p.ID] = cancel
-	proxy := q.proxy
-	activeCount := len(q.active)
-	q.mu.Unlock()
-
-	logger.Debug("Task activated",
-		zap.String("id", string(p.ID)),
-		zap.Int("activeCount", activeCount))
-
-	// 应用全局代理配置
-	if proxy != "" {
-		p.Proxy = proxy
-		logger.Debug("Applied global proxy to task",
-			zap.String("id", string(p.ID)),
-			zap.String("proxy", proxy))
 	}
 
 	// 执行下载
@@ -192,12 +176,7 @@ func (q *TaskQueue) execute(p DownloadParams) {
 	// 从活跃任务表中移除
 	q.mu.Lock()
 	delete(q.active, p.ID)
-	activeCount = len(q.active)
 	q.mu.Unlock()
-
-	logger.Debug("Task deactivated",
-		zap.String("id", string(p.ID)),
-		zap.Int("activeCount", activeCount))
 
 	// 根据错误类型发送相应事件并更新任务状态
 	switch {
@@ -235,15 +214,13 @@ func (q *TaskQueue) execute(p DownloadParams) {
 			task.Error = err.Error()
 		}
 		q.mu.Unlock()
-		if q.onFailed != nil {
-			q.onFailed(p.ID, err)
+					if q.onFailed != nil {
+						q.onFailed(p.ID, err)
+					}
+			}
+		
+			q.tryRun()
 		}
-	}
-
-	// 短暂延迟后尝试运行下一个任务
-	time.AfterFunc(10*time.Millisecond, q.tryRun)
-}
-
 // 事件钩子注册方法（供 API 层使用）
 
 func (q *TaskQueue) OnStart(fn func(TaskID)) {

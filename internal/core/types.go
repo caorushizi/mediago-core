@@ -28,15 +28,12 @@ const (
 
 // DownloadParams 下载任务参数
 type DownloadParams struct {
-	ID             TaskID       `json:"id"`             // 任务ID
-	Type           DownloadType `json:"type"`           // 下载类型
-	URL            string       `json:"url"`            // 下载URL
-	LocalDir       string       `json:"localDir"`       // 本地保存目录
-	Name           string       `json:"name"`           // 文件名
-	DeleteSegments bool         `json:"deleteSegments"` // 是否删除分段文件
-	Headers        []string     `json:"headers"`        // 自定义HTTP头
-	Proxy          string       `json:"proxy"`          // 代理地址
-	Folder         string       `json:"folder"`         // 子文件夹
+	ID      TaskID          `json:"id"`             // 任务 ID
+	Type    DownloadType    `json:"type"`           // 下载类型
+	URL     string          `json:"url"`            // 下载 URL
+	Name    string          `json:"name"`           // 文件名
+	Folder  string          `json:"folder"`         // 子文件夹
+	Headers []string        `json:"headers"`        // HTTP 请求头
 }
 
 // ProgressEvent 进度事件
@@ -81,6 +78,6 @@ type Runner interface {
 
 // Downloader 下载器接口
 type Downloader interface {
-	// Download 执行下载任务
 	Download(ctx context.Context, p DownloadParams, cb Callbacks) error
+	Config() interface{}
 }
