@@ -26,6 +26,25 @@ type LineParser struct {
 	isLiveReg  *regexp.Regexp
 }
 
+// 处理退格符，返回真实显示的字符串
+func processBackspaces(s string) string {
+	result := []rune{}
+
+	for _, ch := range s {
+		if ch == '\b' {
+			// 遇到退格符，删除最后一个字符
+			if len(result) > 0 {
+				result = result[:len(result)-1]
+			}
+		} else {
+			// 普通字符，添加到结果
+			result = append(result, ch)
+		}
+	}
+
+	return string(result)
+}
+
 // NewLineParser 创建解析器
 func NewLineParser(cr schema.ConsoleReg) (*LineParser, error) {
 	lp := &LineParser{}
@@ -85,6 +104,7 @@ func (lp *LineParser) Parse(line string, state *ParseState) (event string, errMs
 	// 解析进度百分比（记录是否匹配到）
 	matchedPercent := false
 	if lp.percentReg != nil {
+		line = processBackspaces(line)
 		matches := lp.percentReg.FindStringSubmatch(line)
 		if len(matches) > 1 {
 			if percent, err := strconv.ParseFloat(matches[1], 64); err == nil {

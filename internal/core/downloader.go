@@ -216,7 +216,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 
 		// 处理进度更新（应用节流策略）
 		if st.Ready && (st.Percent > 0 || st.Speed != "") {
-			if cb.OnProgress != nil && d.tracker.ShouldUpdate(parser.TaskID(p.ID), st.Percent, st.Speed) {
+			if cb.OnProgress != nil && d.tracker.ShouldUpdate(parser.TaskID(p.ID)) {
 				logger.Debug("Download progress",
 					zap.String("id", string(p.ID)),
 					zap.Float64("percent", st.Percent),
@@ -228,7 +228,7 @@ func (d *DownloaderSvc) Download(ctx context.Context, p DownloadParams, cb Callb
 					Speed:   st.Speed,
 					IsLive:  st.IsLive,
 				})
-				d.tracker.Update(parser.TaskID(p.ID), st.Percent, st.Speed)
+				d.tracker.Update(parser.TaskID(p.ID))
 			}
 		}
 	}

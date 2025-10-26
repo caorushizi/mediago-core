@@ -47,43 +47,12 @@ func (r *PTYRunner) readPTYOutput(reader io.Reader, onStdLine func(string)) erro
 
 	// 自定义分割函数: 同时支持 \n 和 \r 作为行分隔符
 	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
+		onStdLine(string(data))
 
-		// 查找 \n 或 \r
-		for i := 0; i < len(data); i++ {
-			if data[i] == '\n' {
-				// 找到换行符,返回该行(不包括\n)
-				return i + 1, data[:i], nil
-			}
-			if data[i] == '\r' {
-				// 找到回车符
-				// 检查是否是 \r\n 组合
-				if i+1 < len(data) && data[i+1] == '\n' {
-					return i + 2, data[:i], nil
-				}
-				// 单独的 \r
-				return i + 1, data[:i], nil
-			}
-		}
-
-		// 如果到达 EOF,返回剩余数据
-		if atEOF {
-			return len(data), data, nil
-		}
-
-		// 请求更多数据
-		return 0, nil, nil
+		return bufio.ScanLines(data, atEOF)
 	})
 
 	for scanner.Scan() {
-		line := scanner.Text()
-		// 解码并回调
-		decoded := decodeToUTF8([]byte(line))
-		if onStdLine != nil && decoded != "" {
-			onStdLine(decoded)
-		}
 	}
 
 	return scanner.Err()
