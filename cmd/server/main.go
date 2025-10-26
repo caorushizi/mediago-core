@@ -99,7 +99,9 @@ func main() {
 
 	// 5. 启动 HTTP 服务器
 	server := api.NewServer(queue)
-	addr := net.JoinHostPort(appCfg.Host, appCfg.Port)
+	host := getEnv("HOST", appCfg.Host)
+	port := getEnv("PORT", appCfg.Port)
+	addr := net.JoinHostPort(host, port)
 	gin.SetMode(appCfg.Mode)
 	logger.Infof("Starting HTTP server on %s", addr)
 	logger.Info("API Endpoints:")
@@ -248,4 +250,11 @@ func (c *appConfig) applyDefaults() {
 	if strings.TrimSpace(c.Binaries.Direct) == "" {
 		c.Binaries.Direct = "/usr/local/bin/aria2c"
 	}
+}
+
+func getEnv(key, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		return value
+	}
+	return fallback
 }
