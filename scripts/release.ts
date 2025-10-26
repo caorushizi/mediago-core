@@ -31,8 +31,13 @@ async function buildBinary(cfg: BuildConfig) {
   const output = join(config.BIN_DIR, `${getPackageName(cfg)}${ext}`);
 
   await runCommand(
-    `CGO_ENABLED=0 GOOS=${cfg.goos} GOARCH=${cfg.goarch} go build -ldflags="${config.GO_LDFLAGS}" -o ${output} ${config.CMD_PATH}`,
-    `✓ ${cfg.goos}/${cfg.goarch}`
+    `go build -ldflags="${config.GO_LDFLAGS}" -o ${output} ${config.CMD_PATH}`,
+    `✓ ${cfg.goos}/${cfg.goarch}`,
+    {
+      GOOS: cfg.goos,
+      GOARCH: cfg.goarch,
+      CGO_ENABLED: '0',
+    }
   );
 }
 

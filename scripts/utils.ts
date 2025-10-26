@@ -143,8 +143,9 @@ export function writeTextFile(filePath: string, content: string): void {
  * 运行命令（实时输出）
  * @param command 要执行的命令
  * @param description 命令描述（可选）
+ * @param env 环境变量（可选）
  */
-export async function runCommand(command: string, description?: string): Promise<void> {
+export async function runCommand(command: string, description?: string, env?: Record<string, string>): Promise<void> {
   if (description) {
     console.log(`\n▶ ${description}: ${command}`);
   }
@@ -154,7 +155,10 @@ export async function runCommand(command: string, description?: string): Promise
     const child = spawn(command, {
       shell: true,
       stdio: 'inherit', // 直接继承父进程的 stdio，实现实时输出
-      env: process.env,
+      env: {
+        ...process.env,
+        ...env
+      },
     });
 
     child.on('error', (error) => {
