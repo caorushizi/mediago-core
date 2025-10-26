@@ -15,21 +15,20 @@ export const config = {
 };
 
 export const devConfig = {
-  logLevel: "debug",
-  port: "8080",
   gin_mode: "debug",
   log_level: "debug",
   log_dir: "./logs",
   schema_path: "./configs/config.json",
-  m3u8_bin: ".bin/darwin/arm64/N_m3u8DL-RE",
-  bilibili_bin: ".bin/darwin/arm64/BBDown",
-  direct_bin: "./bin/darwin/arm64/gopeed",
+  m3u8_bin: "./.bin/win32/x64/N_m3u8DL-RE.exe",
+  bilibili_bin: "./.bin/win32/x64/BBDown.exe",
+  direct_bin: "./.bin/win32/x64/gopeed.exe",
   max_runner: 3,
-  	local_dir: "/Users/caorushizi/temp/videos",
-  	delete_segments: true,
-  	proxy: "",
-  	use_proxy: false,
-  };
+  local_dir: "/Users/caorushizi/temp/videos",
+  delete_segments: true,
+  proxy: "",
+  use_proxy: false,
+};
+
 export interface BuildConfig {
   goos: string;
   goarch: string;

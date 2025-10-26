@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"os"
 	"path/filepath"
@@ -60,7 +59,6 @@ type AppConfig struct {
 	DeleteSegments bool   `json:"delete_segments"`
 	Proxy          string `json:"proxy"`
 	UseProxy       bool   `json:"use_proxy"`
-	ConfigString   string `json:"-"` // 用于接收命令行的 JSON 字符串，不参与 JSON 解析
 }
 
 func (c *AppConfig) GetLocalDir() string {
@@ -96,23 +94,28 @@ func (c *AppConfig) SetUseProxy(useProxy bool) {
 }
 
 func main() {
-	// 1. 初始化和解析配置
+	// 1. 先用默认配置初始化日志系统，以便在配置解析过程中使用
+	if err := logger.Init(logger.DefaultConfig()); err != nil {
+		panic("Failed to initialize logger: " + err.Error())
+	}
+	defer logger.Sync()
+
+	// 2. 初始化和解析配置
 	cfg := initConfig()
 
-	// 2. 初始化日志系统
+	// 3. 根据配置重新初始化日志系统
 	logCfg := logger.DefaultConfig()
 	logCfg.Level = cfg.LogLevel
 	logCfg.LogDir = cfg.LogDir
 
 	if err := logger.Init(logCfg); err != nil {
-		panic("Failed to initialize logger: " + err.Error())
+		logger.Fatalf("Failed to reinitialize logger with config: %v", err)
 	}
-	defer logger.Sync()
 
 	logger.Info("MediaGo Downloader Service Starting...")
 	logger.Infof("Final Config: %+v", cfg)
 
-	// 3. 加载 JSON Schema 配置
+	// 4. 加载 JSON Schema 配置
 	logger.Infof("Loading schemas from: %s", cfg.SchemaPath)
 	schemas, err := schema.LoadSchemasFromJSON(cfg.SchemaPath)
 	if err != nil {
@@ -120,20 +123,20 @@ func main() {
 	}
 	logger.Infof("Loaded %d download schemas", len(schemas.Schemas))
 
-	// 4. 配置下载器二进制路径
+	// 5. 配置下载器二进制路径
 	binMap := getBinaryMap(cfg)
 	for dt, path := range binMap {
 		logger.Infof("%s downloader: %s", dt, path)
 	}
 
-	// 5. 创建核心组件
+	// 6. 创建核心组件
 	r := runner.NewPTYRunner()
 	downloader := core.NewDownloader(binMap, r, schemas, cfg)
 	queue := core.NewTaskQueue(downloader, cfg.MaxRunner)
 
 	logger.Infof("Task queue initialized (maxRunner=%d)", cfg.MaxRunner)
 
-	// 6. 启动 HTTP 服务器
+	// 7. 启动 HTTP 服务器
 	server := api.NewServer(queue)
 	addr := cfg.Host + ":" + cfg.Port
 	gin.SetMode(cfg.GinMode)
@@ -154,9 +157,9 @@ func initConfig() *AppConfig {
 		LogLevel:       "info",
 		LogDir:         "./logs",
 		SchemaPath:     "", // 稍后计算默认值
-		M3U8Bin:        "/usr/local/bin/N_m3u8DL-RE",
-		BilibiliBin:    "/usr/local/bin/BBDown",
-		DirectBin:      "/usr/local/bin/aria2c",
+		M3U8Bin:        "",
+		BilibiliBin:    "",
+		DirectBin:      "",
 		MaxRunner:      2,
 		LocalDir:       "./downloads",
 		DeleteSegments: true,
@@ -164,10 +167,7 @@ func initConfig() *AppConfig {
 		UseProxy:       false,
 	}
 
-	// 1. 从命令行 JSON 字符串加载（优先级最低）
-	flag.StringVar(&cfg.ConfigString, "config", "", "JSON string for configuration")
-
-	// 2. 定义其他命令行标志
+	// 1. 定义其他命令行标志
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Log level (debug/info/warn/error)")
 	flag.StringVar(&cfg.LogDir, "log-dir", cfg.LogDir, "Log directory")
 	flag.StringVar(&cfg.M3U8Bin, "m3u8-bin", cfg.M3U8Bin, "M3U8 downloader binary path")
@@ -179,25 +179,14 @@ func initConfig() *AppConfig {
 	flag.BoolVar(&cfg.DeleteSegments, "delete-segments", cfg.DeleteSegments, "Delete segments after download")
 	flag.StringVar(&cfg.Proxy, "proxy", cfg.Proxy, "Proxy for downloader")
 	flag.BoolVar(&cfg.UseProxy, "use-proxy", cfg.UseProxy, "Enable proxy")
-	flag.Parse()
+	flag.IntVar(&cfg.MaxRunner, "max-runner", cfg.MaxRunner, "Maximum concurrent download runners")
 
-	// 如果提供了 -config JSON 字符串，则解析它
-	if cfg.ConfigString != "" {
-		if err := json.Unmarshal([]byte(cfg.ConfigString), cfg); err != nil {
-			// 使用初始化的 logger 可能会有问题，因为此时 logger 还没完全配置好
-			// 但为了可见性，我们还是尝试记录错误
-			logger.Warnf("Failed to parse -config JSON string, error: %v. Using defaults and other flags.", err)
-		}
-	}
+	flag.Parse()
 
 	// 3. 从环境变量加载（会覆盖 JSON 和默认值）
 	cfg.GinMode = getEnv("GIN_MODE", cfg.GinMode)
 	cfg.Host = getEnv("HOST", cfg.Host)
 	cfg.Port = getEnv("PORT", cfg.Port)
-
-	// 4. 重新解析命令行标志，使其优先级最高
-	// Re-parse the flags to ensure command-line values override all previous settings.
-	flag.Parse()
 
 	// 如果 SchemaPath 仍然为空，则计算其默认值
 	if cfg.SchemaPath == "" {

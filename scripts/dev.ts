@@ -8,10 +8,22 @@ import { join } from "path";
 export async function dev() {
   console.log("🚀 启动开发服务器...");
   const command = [
-    `go run ${config.CMD_PATH}`,
-    `-config='${JSON.stringify(devConfig)}'`,
-  ].join(" ");
-  await runCommand(command);
+    "go",
+    "run",
+    config.CMD_PATH,
+    `-log-level=${devConfig.log_level}`,
+    `-log-dir=${devConfig.log_dir}`,
+    `-schema-path=${devConfig.schema_path}`,
+    `-max-runner=${devConfig.max_runner.toString()}`,
+    `-local-dir=${devConfig.local_dir}`,
+    `-delete-segments=${devConfig.delete_segments.toString()}`,
+    `-proxy=${devConfig.proxy}`,
+    `-use-proxy=${devConfig.use_proxy.toString()}`,
+    `-bilibili-bin=${devConfig.bilibili_bin}`,
+    `-m3u8-bin=${devConfig.m3u8_bin}`,
+    `-direct-bin=${devConfig.direct_bin}`,
+  ]
+  await runCommand(command.join(" "), "启动开发服务器");
 }
 
 /**
