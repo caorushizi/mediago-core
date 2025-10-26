@@ -48,28 +48,41 @@ import (
 // @tag.description 实时事件推送相关接口
 
 func main() {
-	configJSON := flag.String("config", "", "JSON string with server configuration")
-	flag.Parse()
+	appCfg := mustLoadAppConfig()
 
-	appCfg, err := loadAppConfig(*configJSON)
-	if err != nil {
-		panic("Failed to parse config: " + err.Error())
-	}
-
-	// 1. 初始化日志系统
-	logCfg := logger.DefaultConfig()
-	logCfg.Level = appCfg.Log.Level
-	logCfg.LogDir = appCfg.Log.Dir
-
-	if err := logger.Init(logCfg); err != nil {
+	if err := initLogger(appCfg.Log); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
 	}
 	defer logger.Sync()
 
 	logger.Info("MediaGo Downloader Service Starting...")
 
-	// 2. 加载 JSON Schema 配置
-	schemaPath := resolveSchemaPath(appCfg.SchemaPath)
+	schemas := mustLoadSchemas(appCfg.SchemaPath)
+	queue := buildTaskQueue(appCfg, schemas)
+
+	startHTTPServer(appCfg, queue)
+}
+
+func mustLoadAppConfig() appConfig {
+	configJSON := flag.String("config", "", "JSON string with server configuration")
+	flag.Parse()
+
+	cfg, err := loadAppConfig(*configJSON)
+	if err != nil {
+		panic("Failed to parse config: " + err.Error())
+	}
+	return cfg
+}
+
+func initLogger(cfg logConfig) error {
+	logCfg := logger.DefaultConfig()
+	logCfg.Level = cfg.Level
+	logCfg.LogDir = cfg.Dir
+	return logger.Init(logCfg)
+}
+
+func mustLoadSchemas(path string) schema.Repository {
+	schemaPath := resolveSchemaPath(path)
 	logger.Infof("Loading schemas from: %s", schemaPath)
 
 	schemas, err := schema.LoadSchemasFromJSON(schemaPath)
@@ -77,18 +90,18 @@ func main() {
 		logger.Fatalf("Failed to load schemas: %v", err)
 	}
 	logger.Infof("Loaded %d download schemas", len(schemas.Schemas))
+	return schemas
+}
 
-	// 3. 配置下载器二进制路径
-	binMap := appCfg.Binaries.toMap()
+func buildTaskQueue(cfg appConfig, schemas schema.Repository) *core.TaskQueue {
+	binMap := cfg.Binaries.toMap()
 	for dt, path := range binMap {
 		logger.Infof("%s downloader: %s", dt, path)
 	}
 
-	// 4. 创建核心组件
-	r := runner.NewPTYRunner()
-	downloader := core.NewDownloader(binMap, r, schemas)
-	queueCfg := appCfg.Queue.toCoreConfig()
-
+	runner := runner.NewPTYRunner()
+	downloader := core.NewDownloader(binMap, runner, schemas)
+	queueCfg := cfg.Queue.toCoreConfig()
 	queue := core.NewTaskQueue(downloader, queueCfg)
 
 	logger.Info("Task queue initialized with defaults",
@@ -97,12 +110,14 @@ func main() {
 		zap.Bool("deleteSegments", queueCfg.DeleteSegments),
 		zap.String("proxy", queueCfg.Proxy))
 
-	// 5. 启动 HTTP 服务器
+	return queue
+}
+
+func startHTTPServer(cfg appConfig, queue *core.TaskQueue) {
 	server := api.NewServer(queue)
-	host := getEnv("HOST", appCfg.Host)
-	port := getEnv("PORT", appCfg.Port)
-	addr := net.JoinHostPort(host, port)
-	gin.SetMode(appCfg.Mode)
+	addr := buildListenAddr(cfg)
+
+	gin.SetMode(cfg.Mode)
 	logger.Infof("Starting HTTP server on %s", addr)
 	logger.Info("API Endpoints:")
 	logger.Info("  GET  /healthy            - Health check")
@@ -118,6 +133,12 @@ func main() {
 	if err := server.Run(addr); err != nil {
 		logger.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+func buildListenAddr(cfg appConfig) string {
+	host := getEnv("HOST", cfg.Host)
+	port := getEnv("PORT", cfg.Port)
+	return net.JoinHostPort(host, port)
 }
 
 // resolveSchemaPath 获取配置文件路径
