@@ -2,9 +2,12 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
+	"net"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 
 	"caorushizi.cn/mediago/internal/api"
 	"caorushizi.cn/mediago/internal/core"
@@ -45,15 +48,18 @@ import (
 // @tag.description 实时事件推送相关接口
 
 func main() {
-	// Read config from env/flags
-	mode := getEnv("GIN_MODE", "release") // "debug" / "release" / "test"
-	defaultHost := getEnv("HOST", "0.0.0.0")
-	defaultPort := getEnv("PORT", "8080")
+	configJSON := flag.String("config", "", "JSON string with server configuration")
+	flag.Parse()
+
+	appCfg, err := loadAppConfig(*configJSON)
+	if err != nil {
+		panic("Failed to parse config: " + err.Error())
+	}
 
 	// 1. 初始化日志系统
 	logCfg := logger.DefaultConfig()
-	logCfg.Level = getEnv("MEDIAGO_LOG_LEVEL", "info")
-	logCfg.LogDir = getEnv("MEDIAGO_LOG_DIR", "./logs")
+	logCfg.Level = appCfg.Log.Level
+	logCfg.LogDir = appCfg.Log.Dir
 
 	if err := logger.Init(logCfg); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
@@ -63,7 +69,7 @@ func main() {
 	logger.Info("MediaGo Downloader Service Starting...")
 
 	// 2. 加载 JSON Schema 配置
-	schemaPath := getConfigPath()
+	schemaPath := resolveSchemaPath(appCfg.SchemaPath)
 	logger.Infof("Loading schemas from: %s", schemaPath)
 
 	schemas, err := schema.LoadSchemasFromJSON(schemaPath)
@@ -73,7 +79,7 @@ func main() {
 	logger.Infof("Loaded %d download schemas", len(schemas.Schemas))
 
 	// 3. 配置下载器二进制路径
-	binMap := getBinaryMap()
+	binMap := appCfg.Binaries.toMap()
 	for dt, path := range binMap {
 		logger.Infof("%s downloader: %s", dt, path)
 	}
@@ -81,12 +87,7 @@ func main() {
 	// 4. 创建核心组件
 	r := runner.NewPTYRunner()
 	downloader := core.NewDownloader(binMap, r, schemas)
-	queueCfg := core.QueueConfig{
-		MaxRunner:      getEnvAsInt("MEDIAGO_MAX_RUNNER", 2),
-		LocalDir:       getEnv("MEDIAGO_LOCAL_DIR", "./downloads"),
-		DeleteSegments: getEnvAsBool("MEDIAGO_DELETE_SEGMENTS", false),
-		Proxy:          getEnv("MEDIAGO_PROXY", ""),
-	}
+	queueCfg := appCfg.Queue.toCoreConfig()
 
 	queue := core.NewTaskQueue(downloader, queueCfg)
 
@@ -98,8 +99,8 @@ func main() {
 
 	// 5. 启动 HTTP 服务器
 	server := api.NewServer(queue)
-	addr := defaultHost + ":" + defaultPort
-	gin.SetMode(mode)
+	addr := net.JoinHostPort(appCfg.Host, appCfg.Port)
+	gin.SetMode(appCfg.Mode)
 	logger.Infof("Starting HTTP server on %s", addr)
 	logger.Info("API Endpoints:")
 	logger.Info("  GET  /healthy            - Health check")
@@ -117,10 +118,10 @@ func main() {
 	}
 }
 
-// getConfigPath 获取配置文件路径
-func getConfigPath() string {
-	if path := os.Getenv("MEDIAGO_SCHEMA_PATH"); path != "" {
-		return path
+// resolveSchemaPath 获取配置文件路径
+func resolveSchemaPath(override string) string {
+	if strings.TrimSpace(override) != "" {
+		return override
 	}
 	// 默认路径：优先使用可执行文件所在目录下的 config.json
 	execPath, _ := os.Executable()
@@ -133,39 +134,118 @@ func getConfigPath() string {
 	return filepath.Join(execDir, "..", "..", "configs", "config.json")
 }
 
-// getBinaryMap 获取下载器二进制路径映射
-func getBinaryMap() map[core.DownloadType]string {
-	binMap := make(map[core.DownloadType]string)
+// loadAppConfig loads application configuration from a JSON string and applies defaults.
+func loadAppConfig(raw string) (appConfig, error) {
+	cfg := defaultAppConfig()
+	if strings.TrimSpace(raw) == "" {
+		return cfg, nil
+	}
 
-	// 从环境变量读取，或使用默认路径
-	binMap[core.TypeM3U8] = getEnv("MEDIAGO_M3U8_BIN", "/usr/local/bin/N_m3u8DL-RE")
-	binMap[core.TypeBilibili] = getEnv("MEDIAGO_BILIBILI_BIN", "/usr/local/bin/BBDown")
-	binMap[core.TypeDirect] = getEnv("MEDIAGO_DIRECT_BIN", "/usr/local/bin/aria2c")
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return appConfig{}, err
+	}
 
-	return binMap
+	cfg.applyDefaults()
+	return cfg, nil
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
+type appConfig struct {
+	Mode       string           `json:"mode"`
+	Host       string           `json:"host"`
+	Port       string           `json:"port"`
+	Log        logConfig        `json:"log"`
+	SchemaPath string           `json:"schemaPath"`
+	Queue      queueConfigInput `json:"queue"`
+	Binaries   binaryConfig     `json:"binaries"`
 }
 
-func getEnvAsInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if iv, err := strconv.Atoi(v); err == nil {
-			return iv
-		}
-	}
-	return def
+type logConfig struct {
+	Level string `json:"level"`
+	Dir   string `json:"dir"`
 }
 
-func getEnvAsBool(key string, def bool) bool {
-	if v := os.Getenv(key); v != "" {
-		if bv, err := strconv.ParseBool(v); err == nil {
-			return bv
-		}
+type queueConfigInput struct {
+	MaxRunner      int    `json:"maxRunner"`
+	LocalDir       string `json:"localDir"`
+	DeleteSegments bool   `json:"deleteSegments"`
+	Proxy          string `json:"proxy"`
+}
+
+func (q queueConfigInput) toCoreConfig() core.QueueConfig {
+	return core.QueueConfig{
+		MaxRunner:      q.MaxRunner,
+		LocalDir:       q.LocalDir,
+		DeleteSegments: q.DeleteSegments,
+		Proxy:          q.Proxy,
 	}
-	return def
+}
+
+type binaryConfig struct {
+	M3U8     string `json:"m3u8"`
+	Bilibili string `json:"bilibili"`
+	Direct   string `json:"direct"`
+}
+
+func (b binaryConfig) toMap() map[core.DownloadType]string {
+	return map[core.DownloadType]string{
+		core.TypeM3U8:     b.M3U8,
+		core.TypeBilibili: b.Bilibili,
+		core.TypeDirect:   b.Direct,
+	}
+}
+
+func defaultAppConfig() appConfig {
+	return appConfig{
+		Mode: "release",
+		Host: "0.0.0.0",
+		Port: "8080",
+		Log: logConfig{
+			Level: "info",
+			Dir:   "./logs",
+		},
+		Queue: queueConfigInput{
+			MaxRunner:      2,
+			LocalDir:       "./downloads",
+			DeleteSegments: false,
+			Proxy:          "",
+		},
+		Binaries: binaryConfig{
+			M3U8:     "/usr/local/bin/N_m3u8DL-RE",
+			Bilibili: "/usr/local/bin/BBDown",
+			Direct:   "/usr/local/bin/aria2c",
+		},
+	}
+}
+
+func (c *appConfig) applyDefaults() {
+	if strings.TrimSpace(c.Mode) == "" {
+		c.Mode = "release"
+	}
+	if strings.TrimSpace(c.Host) == "" {
+		c.Host = "0.0.0.0"
+	}
+	if strings.TrimSpace(c.Port) == "" {
+		c.Port = "8080"
+	}
+	if strings.TrimSpace(c.Log.Level) == "" {
+		c.Log.Level = "info"
+	}
+	if strings.TrimSpace(c.Log.Dir) == "" {
+		c.Log.Dir = "./logs"
+	}
+	if c.Queue.MaxRunner <= 0 {
+		c.Queue.MaxRunner = 2
+	}
+	if strings.TrimSpace(c.Queue.LocalDir) == "" {
+		c.Queue.LocalDir = "./downloads"
+	}
+	if strings.TrimSpace(c.Binaries.M3U8) == "" {
+		c.Binaries.M3U8 = "/usr/local/bin/N_m3u8DL-RE"
+	}
+	if strings.TrimSpace(c.Binaries.Bilibili) == "" {
+		c.Binaries.Bilibili = "/usr/local/bin/BBDown"
+	}
+	if strings.TrimSpace(c.Binaries.Direct) == "" {
+		c.Binaries.Direct = "/usr/local/bin/aria2c"
+	}
 }
