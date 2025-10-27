@@ -10,7 +10,7 @@ type SuccessResponse struct {
 
 // ErrorResponse represents a standardized error response.
 type ErrorResponse struct {
-	Success bool   `json:"success" example:"false"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+    Success bool   `json:"success" example:"false"`
+    Code    int    `json:"code"`
+    Message string `json:"message"`
 }
