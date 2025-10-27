@@ -32,7 +32,7 @@ func NewTaskHandler(queue *core.TaskQueue) *TaskHandler {
 // @Accept json
 // @Produce json
 // @Param task body dto.CreateTaskReq true "下载任务参数"
-// @Success 200 {object} dto.CreateTaskResponse "任务创建成功，返回任务状态 (pending/success)"
+// @Success 200 {object} dto.SuccessResponse{data=dto.CreateTaskResponse} "任务创建成功，返回任务状态 (pending/success)"
 // @Failure 400 {object} dto.ErrorResponse "请求参数错误"
 // @Router /tasks [post]
 func (h *TaskHandler) Create(c *gin.Context) {
@@ -74,7 +74,7 @@ func (h *TaskHandler) Create(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "任务ID" example(task-1)
-// @Success 200 {object} dto.SuccessResponse "任务信息"
+// @Success 200 {object} dto.SuccessResponse{data=core.TaskInfo} "任务信息"
 // @Failure 404 {object} dto.ErrorResponse "任务不存在"
 // @Router /tasks/{id} [get]
 func (h *TaskHandler) Get(c *gin.Context) {
@@ -108,7 +108,7 @@ func (h *TaskHandler) Get(c *gin.Context) {
 // @Tags Tasks
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.SuccessResponse "任务列表"
+// @Success 200 {object} dto.SuccessResponse{data=dto.TaskListResponse} "任务列表"
 // @Router /tasks [get]
 func (h *TaskHandler) List(c *gin.Context) {
 	tasks := h.queue.GetAllTasks()
@@ -135,7 +135,7 @@ func (h *TaskHandler) List(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "任务ID" example(task-1)
-// @Success 200 {object} dto.SuccessResponse "任务停止成功"
+// @Success 200 {object} dto.SuccessResponse{data=dto.StopTaskResponse} "任务停止成功"
 // @Failure 404 {object} dto.ErrorResponse "任务不存在"
 // @Router /tasks/{id}/stop [post]
 func (h *TaskHandler) Stop(c *gin.Context) {

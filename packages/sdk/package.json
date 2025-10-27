@@ -1,6 +1,6 @@
 {
   "name": "@mediago/core-sdk",
-  "version": "0.0.0",
+  "version": "0.0.3",
   "description": "A starter for creating a TypeScript package.",
   "type": "module",
   "license": "MIT",
@@ -30,6 +30,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/axios": "^0.14.4",
     "@types/node": "^24.9.1",
     "bumpp": "^10.3.1",
     "tsdown": "^0.15.9",
@@ -37,6 +38,8 @@
     "vitest": "^4.0.1"
   },
   "dependencies": {
-    "axios": "^1.12.2"
+    "axios": "^1.12.2",
+    "eventsource": "^4.0.0",
+    "mitt": "^3.0.1"
   }
 }

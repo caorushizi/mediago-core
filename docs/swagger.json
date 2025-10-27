@@ -42,7 +42,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest"
+                            "type": "object"
                         }
                     }
                 ],
@@ -50,7 +50,19 @@
                     "200": {
                         "description": "配置更新成功",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -122,7 +134,19 @@
                     "200": {
                         "description": "任务列表",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.TaskListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -154,7 +178,19 @@
                     "200": {
                         "description": "任务创建成功，返回任务状态 (pending/success)",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.CreateTaskResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.CreateTaskResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -193,7 +229,19 @@
                     "200": {
                         "description": "任务信息",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -232,7 +280,19 @@
                     "200": {
                         "description": "任务停止成功",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.StopTaskResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -327,6 +387,16 @@
                 }
             }
         },
+        "caorushizi_cn_mediago_internal_api_dto.StopTaskResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "响应消息",
+                    "type": "string",
+                    "example": "Task stopped"
+                }
+            }
+        },
         "caorushizi_cn_mediago_internal_api_dto.SuccessResponse": {
             "type": "object",
             "properties": {
@@ -345,28 +415,19 @@
                 }
             }
         },
-        "caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest": {
+        "caorushizi_cn_mediago_internal_api_dto.TaskListResponse": {
             "type": "object",
             "properties": {
-                "deleteSegments": {
-                    "description": "是否删除分段",
-                    "type": "boolean"
+                "tasks": {
+                    "description": "任务列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskInfo"
+                    }
                 },
-                "localDir": {
-                    "description": "本地保存目录",
-                    "type": "string"
-                },
-                "maxRunner": {
-                    "description": "最大并发下载数",
+                "total": {
+                    "description": "总数量",
                     "type": "integer"
-                },
-                "proxy": {
-                    "description": "代理地址",
-                    "type": "string"
-                },
-                "useProxy": {
-                    "description": "是否使用代理",
-                    "type": "boolean"
                 }
             }
         },
@@ -391,6 +452,86 @@
                 "TypeM3U8",
                 "TypeBilibili",
                 "TypeDirect"
+            ]
+        },
+        "caorushizi_cn_mediago_internal_core.TaskInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "错误信息（如果有）",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "任务ID",
+                    "type": "string"
+                },
+                "isLive": {
+                    "description": "是否为直播流",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string"
+                },
+                "percent": {
+                    "description": "完成百分比",
+                    "type": "number"
+                },
+                "speed": {
+                    "description": "下载速度",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "任务状态",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.TaskStatus"
+                        }
+                    ]
+                },
+                "type": {
+                    "description": "下载类型",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_core.DownloadType"
+                        }
+                    ]
+                },
+                "url": {
+                    "description": "下载URL",
+                    "type": "string"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_core.TaskStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "downloading",
+                "success",
+                "failed",
+                "stopped"
+            ],
+            "x-enum-comments": {
+                "StatusDownloading": "下载中",
+                "StatusFailed": "失败",
+                "StatusPending": "等待中",
+                "StatusStopped": "已停止",
+                "StatusSuccess": "成功完成"
+            },
+            "x-enum-descriptions": [
+                "等待中",
+                "下载中",
+                "成功完成",
+                "失败",
+                "已停止"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusDownloading",
+                "StatusSuccess",
+                "StatusFailed",
+                "StatusStopped"
             ]
         }
     },
