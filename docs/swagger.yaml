@@ -57,6 +57,12 @@ definitions:
         example: false
         type: boolean
     type: object
+  caorushizi_cn_mediago_internal_api_dto.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
   caorushizi_cn_mediago_internal_api_dto.StopTaskResponse:
     properties:
       message:
@@ -87,6 +93,33 @@ definitions:
       total:
         description: 总数量
         type: integer
+    type: object
+  caorushizi_cn_mediago_internal_api_dto.TaskLogResponse:
+    properties:
+      id:
+        description: 任务ID
+        type: string
+      log:
+        description: 日志内容
+        type: string
+    type: object
+  caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest:
+    properties:
+      deleteSegments:
+        description: 是否删除分段
+        type: boolean
+      localDir:
+        description: 本地保存目录
+        type: string
+      maxRunner:
+        description: 最大并发下载数
+        type: integer
+      proxy:
+        description: 代理地址
+        type: string
+      useProxy:
+        description: 是否使用代理
+        type: boolean
     type: object
   caorushizi_cn_mediago_internal_api_dto.UpdateConfigResponse:
     properties:
@@ -191,7 +224,7 @@ paths:
         name: config
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest'
       produces:
       - application/json
       responses:
@@ -238,7 +271,12 @@ paths:
         "200":
           description: 服务正常
           schema:
-            $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.HealthResponse'
+              type: object
       summary: 健康检查
       tags:
       - Health
@@ -323,6 +361,41 @@ paths:
           schema:
             $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse'
       summary: 获取任务状态
+      tags:
+      - Tasks
+  /tasks/{id}/logs:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定任务ID的完整下载日志内容
+      parameters:
+      - description: 任务ID
+        example: task-1
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 任务日志内容
+          schema:
+            allOf:
+            - $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.TaskLogResponse'
+              type: object
+        "404":
+          description: 日志不存在
+          schema:
+            $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse'
+        "500":
+          description: 日志系统未配置或读取失败
+          schema:
+            $ref: '#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse'
+      summary: 获取任务日志
       tags:
       - Tasks
   /tasks/{id}/stop:

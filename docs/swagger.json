@@ -42,7 +42,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest"
                         }
                     }
                 ],
@@ -111,7 +111,19 @@
                     "200": {
                         "description": "服务正常",
                         "schema": {
-                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.HealthResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -253,6 +265,63 @@
                 }
             }
         },
+        "/tasks/{id}/logs": {
+            "get": {
+                "description": "获取指定任务ID的完整下载日志内容",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "获取任务日志",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "task-1",
+                        "description": "任务ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务日志内容",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.TaskLogResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "日志不存在",
+                        "schema": {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "日志系统未配置或读取失败",
+                        "schema": {
+                            "$ref": "#/definitions/caorushizi_cn_mediago_internal_api_dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks/{id}/stop": {
             "post": {
                 "description": "停止指定ID的下载任务",
@@ -387,6 +456,15 @@
                 }
             }
         },
+        "caorushizi_cn_mediago_internal_api_dto.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
         "caorushizi_cn_mediago_internal_api_dto.StopTaskResponse": {
             "type": "object",
             "properties": {
@@ -428,6 +506,44 @@
                 "total": {
                     "description": "总数量",
                     "type": "integer"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.TaskLogResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "任务ID",
+                    "type": "string"
+                },
+                "log": {
+                    "description": "日志内容",
+                    "type": "string"
+                }
+            }
+        },
+        "caorushizi_cn_mediago_internal_api_dto.UpdateConfigRequest": {
+            "type": "object",
+            "properties": {
+                "deleteSegments": {
+                    "description": "是否删除分段",
+                    "type": "boolean"
+                },
+                "localDir": {
+                    "description": "本地保存目录",
+                    "type": "string"
+                },
+                "maxRunner": {
+                    "description": "最大并发下载数",
+                    "type": "integer"
+                },
+                "proxy": {
+                    "description": "代理地址",
+                    "type": "string"
+                },
+                "useProxy": {
+                    "description": "是否使用代理",
+                    "type": "boolean"
                 }
             }
         },

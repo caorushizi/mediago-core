@@ -39,9 +39,9 @@ type AppConfig interface {
 // @Tags Config
 // @Accept json
 // @Produce json
-// @Param config body object true "配置参数"
-// @Success 200 {object} dto.SuccessResponse{data=object} "配置更新成功"
-// @Failure 400 {object} object "请求参数错误"
+// @Param config body dto.UpdateConfigRequest true "配置参数"
+// @Success 200 {object} dto.SuccessResponse{data=dto.UpdateConfigResponse} "配置更新成功"
+// @Failure 400 {object} dto.ErrorResponse "请求参数错误"
 // @Router /config [post]
 func (h *ConfigHandler) Update(c *gin.Context) {
 	var req dto.UpdateConfigRequest
