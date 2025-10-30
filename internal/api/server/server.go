@@ -4,6 +4,7 @@ import (
 	"caorushizi.cn/mediago/internal/api/handler"
 	"caorushizi.cn/mediago/internal/api/sse"
 	"caorushizi.cn/mediago/internal/core"
+	"caorushizi.cn/mediago/internal/tasklog"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +14,7 @@ type Server struct {
 	queue  *core.TaskQueue
 	hub    *sse.Hub
 	engine *gin.Engine
+	logs   *tasklog.Manager
 
 	taskHandler   *handler.TaskHandler
 	configHandler *handler.ConfigHandler
@@ -21,7 +23,7 @@ type Server struct {
 }
 
 // New 创建 HTTP 服务器实例。
-func New(queue *core.TaskQueue) *Server {
+func New(queue *core.TaskQueue, logs *tasklog.Manager) *Server {
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery())
 	engine.Use(cors.New(cors.Config{
@@ -38,7 +40,8 @@ func New(queue *core.TaskQueue) *Server {
 		queue:         queue,
 		hub:           hub,
 		engine:        engine,
-		taskHandler:   handler.NewTaskHandler(queue),
+		logs:          logs,
+		taskHandler:   handler.NewTaskHandler(queue, logs),
 		configHandler: handler.NewConfigHandler(queue),
 		eventHandler:  handler.NewEventHandler(hub),
 		healthHandler: handler.NewHealthHandler(),

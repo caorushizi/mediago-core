@@ -11,6 +11,7 @@ import (
 	"caorushizi.cn/mediago/internal/core/runner"
 	"caorushizi.cn/mediago/internal/core/schema"
 	"caorushizi.cn/mediago/internal/logger"
+	"caorushizi.cn/mediago/internal/tasklog"
 	"github.com/gin-gonic/gin"
 
 	_ "caorushizi.cn/mediago/docs" // Swagger 文档
@@ -133,11 +134,13 @@ func main() {
 	r := runner.NewPTYRunner()
 	downloader := core.NewDownloader(binMap, r, schemas, cfg)
 	queue := core.NewTaskQueue(downloader, cfg.MaxRunner)
+	taskLogs := tasklog.NewManager(filepath.Join(cfg.LogDir, "tasks"))
 
 	logger.Infof("Task queue initialized (maxRunner=%d)", cfg.MaxRunner)
+	logger.Infof("Task logs will be stored in %s", filepath.Join(cfg.LogDir, "tasks"))
 
 	// 7. 启动 HTTP 服务器
-	server := api.NewServer(queue)
+	server := api.NewServer(queue, taskLogs)
 	addr := cfg.Host + ":" + cfg.Port
 	gin.SetMode(cfg.GinMode)
 	logger.Infof("Starting HTTP server on %s", addr)
