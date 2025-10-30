@@ -73,6 +73,14 @@ export interface TaskListResponse {
 }
 
 /**
+ * Response for a task's full log content.
+ */
+export interface TaskLogResponse {
+  id: string;
+  log: string;
+}
+
+/**
  * Parameters for updating the server configuration.
  * All fields are optional.
  */
@@ -100,6 +108,13 @@ export interface TaskFailedEventPayload {
 }
 
 // #region Event Emitter Types
+
+/**
+ * Health check response payload.
+ */
+export interface HealthResponse {
+  status: string;
+}
 
 /**
  * Maps the SSE event names to their respective payload types.

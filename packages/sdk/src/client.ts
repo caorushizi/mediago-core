@@ -6,9 +6,11 @@ import type {
   ApiResponse,
   CreateTaskParams,
   CreateTaskResponse,
+  HealthResponse,
   Task,
   TaskEventEmitter,
   TaskListResponse,
+  TaskLogResponse,
   UpdateConfigParams,
 } from './types';
 import { TaskStreamEventEmitter } from './eventEmitter';
@@ -44,9 +46,8 @@ export class MediaGoClient {
    * Checks the health of the server.
    * @returns A promise that resolves to the health status message.
    */
-  async health(): Promise<string> {
-    // The interceptor will return the text response directly
-    return this.api.get('/healthy', { responseType: 'text' });
+  async health(): Promise<ApiResponse<HealthResponse>> {
+    return this.api.get('/healthy');
   }
 
   /**
@@ -86,6 +87,15 @@ export class MediaGoClient {
     id: string,
   ): Promise<ApiResponse<{ message: string }>> {
     return this.api.post(`/api/tasks/${id}/stop`);
+  }
+
+  /**
+   * Retrieves the full log content of a task.
+   * @param id - The ID of the task.
+   * @returns The task log content.
+   */
+  async getTaskLogs(id: string): Promise<ApiResponse<TaskLogResponse>> {
+    return this.api.get(`/api/tasks/${id}/logs`);
   }
 
   /**
