@@ -1,6 +1,6 @@
 {
   "name": "@mediago/core-sdk",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A starter for creating a TypeScript package.",
   "type": "module",
   "license": "MIT",
