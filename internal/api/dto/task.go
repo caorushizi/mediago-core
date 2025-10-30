@@ -7,12 +7,12 @@ import (
 
 // CreateTaskReq 创建任务请求 DTO
 type CreateTaskReq struct {
-	ID      string            `json:"id,omitempty" example:"my-custom-id"`      // (可选) 自定义任务 ID
-	Type    core.DownloadType `json:"type" binding:"required" example:"m3u8"`       // 下载类型
+	ID      string            `json:"id,omitempty" example:"my-custom-id"`                             // (可选) 自定义任务 ID
+	Type    core.DownloadType `json:"type" binding:"required" example:"m3u8"`                          // 下载类型
 	URL     string            `json:"url" binding:"required" example:"https://example.com/video.m3u8"` // 下载 URL
-	Name    string            `json:"name" binding:"required" example:"video"`          // 文件名
-	Folder  string            `json:"folder" example:"movies"`                                // 子文件夹
-	Headers []string          `json:"headers" example:"User-Agent: custom"`                   // HTTP 请求头
+	Name    string            `json:"name" binding:"required" example:"video"`                         // 文件名
+	Folder  string            `json:"folder" example:"movies"`                                         // 子文件夹
+	Headers []string          `json:"headers" example:"User-Agent: custom"`                            // HTTP 请求头
 }
 
 // ToDownloadParams 转换为核心下载参数
@@ -47,4 +47,10 @@ type TaskListResponse struct {
 // StopTaskResponse 停止任务响应
 type StopTaskResponse struct {
 	Message string `json:"message" example:"Task stopped"` // 响应消息
+}
+
+// TaskLogResponse 任务日志响应
+type TaskLogResponse struct {
+	ID  string `json:"id"`  // 任务ID
+	Log string `json:"log"` // 日志内容
 }

@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 
 	"caorushizi.cn/mediago/internal/api/dto"
 	"caorushizi.cn/mediago/internal/core"
 	"caorushizi.cn/mediago/internal/logger"
+	"caorushizi.cn/mediago/internal/tasklog"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -15,13 +18,17 @@ import (
 // TaskHandler 处理任务相关接口。
 type TaskHandler struct {
 	queue *core.TaskQueue
+	logs  *tasklog.Manager
 	mu    sync.Mutex
 	seq   int64
 }
 
 // NewTaskHandler 创建 TaskHandler。
-func NewTaskHandler(queue *core.TaskQueue) *TaskHandler {
-	return &TaskHandler{queue: queue}
+func NewTaskHandler(queue *core.TaskQueue, logs *tasklog.Manager) *TaskHandler {
+	return &TaskHandler{
+		queue: queue,
+		logs:  logs,
+	}
 }
 
 // Create 创建下载任务
@@ -158,6 +165,69 @@ func (h *TaskHandler) Stop(c *gin.Context) {
 		Code:    http.StatusOK,
 		Message: "Task stopped",
 		Data:    dto.StopTaskResponse{Message: "Task stopped"},
+	})
+}
+
+// Logs 获取任务日志
+// @Summary 获取任务日志
+// @Description 获取指定任务ID的完整下载日志内容
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "任务ID" example(task-1)
+// @Success 200 {object} dto.SuccessResponse{data=dto.TaskLogResponse} "任务日志内容"
+// @Failure 404 {object} dto.ErrorResponse "日志不存在"
+// @Failure 500 {object} dto.ErrorResponse "日志系统未配置或读取失败"
+// @Router /tasks/{id}/logs [get]
+func (h *TaskHandler) Logs(c *gin.Context) {
+	id := c.Param("id")
+
+	if h.logs == nil {
+		logger.Error("Task log manager not configured",
+			zap.String("id", id),
+			zap.String("clientIP", c.ClientIP()))
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Success: false,
+			Code:    http.StatusInternalServerError,
+			Message: "task log storage not configured",
+		})
+		return
+	}
+
+	content, err := h.logs.Read(id)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Warn("Task log not found",
+				zap.String("id", id),
+				zap.String("clientIP", c.ClientIP()))
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{
+				Success: false,
+				Code:    http.StatusNotFound,
+				Message: "task log not found",
+			})
+			return
+		}
+
+		logger.Error("Failed to read task log",
+			zap.String("id", id),
+			zap.Error(err),
+			zap.String("clientIP", c.ClientIP()))
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Success: false,
+			Code:    http.StatusInternalServerError,
+			Message: "failed to read task log",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Code:    http.StatusOK,
+		Message: "OK",
+		Data: dto.TaskLogResponse{
+			ID:  id,
+			Log: content,
+		},
 	})
 }
 

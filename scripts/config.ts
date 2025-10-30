@@ -14,16 +14,22 @@ export const config = {
   GO_LDFLAGS: "-s -w",
 };
 
+const exeExt = process.platform === "win32" ? ".exe" : "";
+const homeDir =
+  process.platform === "win32"
+    ? win32.join(process.env.USERPROFILE || "C:\\", ".mediago")
+    : join(process.env.HOME || "/home/user", ".mediago");
+
 export const devConfig = {
   gin_mode: "debug",
   log_level: "debug",
-  log_dir: "./logs",
+  log_dir: `${homeDir}/.mediago/logs`,
   schema_path: "./configs/config.json",
-  m3u8_bin: "./.bin/win32/x64/N_m3u8DL-RE.exe",
-  bilibili_bin: "./.bin/win32/x64/BBDown.exe",
-  direct_bin: "./.bin/win32/x64/gopeed.exe",
+  m3u8_bin: `./.bin/${process.platform}/${process.arch}/N_m3u8DL-RE${exeExt}`,
+  bilibili_bin: `./.bin/${process.platform}/${process.arch}/BBDown${exeExt}`,
+  direct_bin: `./.bin/${process.platform}/${process.arch}/gopeed${exeExt}`,
   max_runner: 3,
-  local_dir: "/Users/caorushizi/temp/videos",
+  local_dir: `${homeDir}/.mediago/downloads`,
   delete_segments: true,
   proxy: "",
   use_proxy: false,
@@ -115,7 +121,7 @@ export const PLATFORMS: PlatformDefinition[] = [
 ];
 
 export const BUILD_PLATFORMS: BuildConfig[] = PLATFORMS.map(
-  ({ goos, goarch }) => ({ goos, goarch }),
+  ({ goos, goarch }) => ({ goos, goarch })
 );
 
 export const PACKAGE_PLATFORMS: BuildConfig[] = PLATFORMS.map(
@@ -124,7 +130,7 @@ export const PACKAGE_PLATFORMS: BuildConfig[] = PLATFORMS.map(
     goarch,
     platform: toolsPlatform,
     arch: toolsArch,
-  }),
+  })
 );
 
 export const NPM_PACKAGE_MAPPINGS = PLATFORMS.map(({ goos, goarch, id }) => ({
@@ -137,14 +143,14 @@ const npmScopePath = `${npmConfig.rootDir}/${npmConfig.scope}`;
 export const CORE_NPM_PACKAGES = [
   `${npmScopePath}/${npmConfig.corePackageName}`,
   ...PLATFORMS.map(
-    ({ id }) => `${npmScopePath}/${npmConfig.corePlatformPrefix}${id}`,
+    ({ id }) => `${npmScopePath}/${npmConfig.corePlatformPrefix}${id}`
   ),
 ];
 
 export const DEPS_NPM_PACKAGES = [
   `${npmScopePath}/${npmConfig.depsPackageName}`,
   ...PLATFORMS.map(
-    ({ id }) => `${npmScopePath}/${npmConfig.depsPlatformPrefix}${id}`,
+    ({ id }) => `${npmScopePath}/${npmConfig.depsPlatformPrefix}${id}`
   ),
 ];
 
