@@ -4,11 +4,9 @@ package logger
 
 import (
 	"os"
-	"path/filepath"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
@@ -43,7 +41,7 @@ func DefaultConfig() Config {
 	return Config{
 		Level:       "info",
 		LogDir:      "./logs",
-		LogFileName: "mediago.log",
+		LogFileName: "mediago-core.log",
 		MaxSize:     100,  // 100MB
 		MaxBackups:  5,    // 保留5个备份
 		MaxAge:      30,   // 30天
@@ -86,15 +84,8 @@ func Init(cfg Config) error {
 	// 文件编码器(JSON格式)
 	fileEncoder := zapcore.NewJSONEncoder(fileEncoderConfig)
 
-	// 配置日志轮转
-	logFile := filepath.Join(cfg.LogDir, cfg.LogFileName)
-	fileWriter := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   logFile,
-		MaxSize:    cfg.MaxSize,
-		MaxBackups: cfg.MaxBackups,
-		MaxAge:     cfg.MaxAge,
-		Compress:   cfg.Compress,
-	})
+	// 配置日志写入：默认按天拆分
+	fileWriter := zapcore.AddSync(newDailyRotateWriter(cfg))
 
 	// 创建多个输出核心
 	var cores []zapcore.Core
