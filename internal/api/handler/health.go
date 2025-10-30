@@ -21,13 +21,13 @@ func NewHealthHandler() *HealthHandler {
 // @Tags Health
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.SuccessResponse "服务正常"
+// @Success 200 {object} dto.SuccessResponse{data=dto.HealthResponse} "服务正常"
 // @Router /healthy [get]
 func (h *HealthHandler) Check(c *gin.Context) {
-	c.JSON(http.StatusOK, dto.SuccessResponse{
-		Success: true,
-		Code:    http.StatusOK,
-		Message: "OK",
-		Data:    gin.H{"status": "ok"},
-	})
+    c.JSON(http.StatusOK, dto.SuccessResponse{
+        Success: true,
+        Code:    http.StatusOK,
+        Message: "OK",
+        Data:    dto.HealthResponse{Status: "ok"},
+    })
 }
