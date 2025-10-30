@@ -2,7 +2,7 @@
 
 MediaGo Player is a hybrid Go+React video player server that combines a powerful Go backend with a responsive React frontend.
 
-_Current package version: 0.0.10_
+_Current package version: 0.0.11_
 
 ## Installation
 

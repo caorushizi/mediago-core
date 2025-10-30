@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "gulp dev",
     "build": "gulp devBuild",
-    "npm:build:core": "cross-env VERSION=0.0.10 gulp buildCore",
+    "npm:build:core": "cross-env VERSION=0.0.11 gulp buildCore",
     "npm:build:deps": "cross-env VERSION=0.0.3 gulp buildDeps",
     "npm:publish:core": "gulp publishCore",
     "npm:publish:deps": "gulp publishDeps"
