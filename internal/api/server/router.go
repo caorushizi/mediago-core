@@ -15,6 +15,7 @@ func (s *Server) registerRoutes() {
 		api.GET("/tasks/:id", s.taskHandler.Get)
 		api.GET("/tasks", s.taskHandler.List)
 		api.POST("/tasks/:id/stop", s.taskHandler.Stop)
+		api.GET("/tasks/:id/logs", s.taskHandler.Logs)
 
 		api.POST("/config", s.configHandler.Update)
 
