@@ -57,11 +57,29 @@ function resolvePackageDir(packageName, { optional = false } = {}) {
 function copyDirectoryContents(srcDir, destDir) {
   if (!fs.existsSync(srcDir)) return;
 
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
   fs.mkdirSync(destDir, { recursive: true });
-  for (const item of fs.readdirSync(srcDir)) {
-    const srcPath = path.join(srcDir, item);
-    const destPath = path.join(destDir, item);
-    fs.cpSync(srcPath, destPath, { recursive: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+
+    if (entry.isSymbolicLink()) {
+      const realPath = fs.realpathSync(srcPath);
+      const stat = fs.statSync(realPath);
+      if (stat.isDirectory()) {
+        copyDirectoryContents(realPath, destPath);
+      } else {
+        fs.copyFileSync(realPath, destPath);
+      }
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      copyDirectoryContents(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
   }
 }
 
@@ -104,11 +122,11 @@ function copyCorePackage(coreDir, targetDir, isWindows) {
   }
 
   const targetBinary = path.join(targetDir, binaryName);
-  fs.copyFileSync(sourceBinary, targetBinary);
+  fs.copyFileSync(fs.realpathSync(sourceBinary), targetBinary);
 
   const sourceConfig = path.join(coreDir, CORE_CONFIG_FILE);
   if (fs.existsSync(sourceConfig)) {
-    fs.copyFileSync(sourceConfig, path.join(targetDir, CORE_CONFIG_FILE));
+    fs.copyFileSync(fs.realpathSync(sourceConfig), path.join(targetDir, CORE_CONFIG_FILE));
   }
 
   if (!isWindows) {
