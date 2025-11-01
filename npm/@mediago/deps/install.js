@@ -52,11 +52,29 @@ function resolvePackageDir(packageName) {
 function copyDirectoryContents(srcDir, destDir) {
   if (!fs.existsSync(srcDir)) return;
 
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
   fs.mkdirSync(destDir, { recursive: true });
-  for (const item of fs.readdirSync(srcDir)) {
-    const srcPath = path.join(srcDir, item);
-    const destPath = path.join(destDir, item);
-    fs.cpSync(srcPath, destPath, { recursive: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+
+    if (entry.isSymbolicLink()) {
+      const realPath = fs.realpathSync(srcPath);
+      const stat = fs.statSync(realPath);
+      if (stat.isDirectory()) {
+        copyDirectoryContents(realPath, destPath);
+      } else {
+        fs.copyFileSync(realPath, destPath);
+      }
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      copyDirectoryContents(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
   }
 }
 
@@ -105,4 +123,3 @@ try {
   console.error('Installation failed:', err.message);
   process.exit(1);
 }
-
