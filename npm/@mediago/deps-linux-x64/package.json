@@ -1,6 +1,6 @@
 {
   "name": "@mediago/deps-linux-x64",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "MediaGo Player dependency binaries for linux x64",
   "os": [
     "linux"
