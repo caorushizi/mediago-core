@@ -7,7 +7,7 @@
     "dev": "gulp dev",
     "build": "gulp devBuild",
     "npm:build:core": "cross-env VERSION=0.0.13 gulp buildCore",
-    "npm:build:deps": "cross-env VERSION=0.0.4 gulp buildDeps",
+    "npm:build:deps": "cross-env VERSION=0.0.5 gulp buildDeps",
     "npm:publish:core": "gulp publishCore",
     "npm:publish:deps": "gulp publishDeps"
   },
