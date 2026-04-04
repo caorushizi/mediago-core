@@ -1,0 +1,43 @@
+version: '3'
+
+vars:
+  BINARY_NAME: mediago
+  CMD_PATH: ./cmd/mediago
+
+tasks:
+  build:
+    desc: Build the binary
+    cmds:
+      - go build -o bin/{{.BINARY_NAME}} {{.CMD_PATH}}
+    sources:
+      - ./**/*.go
+
+  run:
+    desc: Run the application
+    cmds:
+      - go run {{.CMD_PATH}} {{.CLI_ARGS}}
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./... -v
+
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run ./...
+
+  fmt:
+    desc: Format code
+    cmds:
+      - gofmt -s -w .
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf bin/

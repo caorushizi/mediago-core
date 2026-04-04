@@ -30,3 +30,5 @@ bin
 release
 files
 !.bin/**/*
+
+/tmp
