@@ -37,6 +37,16 @@ tasks:
     cmds:
       - go mod tidy
 
+  mockdata:
+    desc: Generate mock HLS/DASH test data locally
+    cmds:
+      - bash scripts/mockdata/generate.sh
+
+  mockdata:upload:
+    desc: Generate mock data and upload to rustfs
+    cmds:
+      - bash scripts/mockdata/generate.sh --upload
+
   clean:
     desc: Clean build artifacts
     cmds:

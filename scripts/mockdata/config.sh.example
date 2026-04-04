@@ -1,0 +1,20 @@
+# RustFS Object Storage Configuration
+# Copy this file to config.sh and fill in your actual values
+# DO NOT commit config.sh to git (it's already in .gitignore)
+
+# RustFS endpoint (S3 compatible API)
+RUSTFS_ENDPOINT="http://your-server:9000"
+
+# RustFS access credentials
+RUSTFS_ACCESS_KEY="your-access-key"
+RUSTFS_SECRET_KEY="your-secret-key"
+
+# Bucket name to store test data
+RUSTFS_BUCKET="video-server"
+
+# Local temporary directory for generated mock data
+MOCK_DATA_TMP_DIR="/tmp/mediago-mockdata"
+
+# Source video URL (for generating real HLS/DASH test data)
+# Leave empty to generate a synthetic test video using ffmpeg testsrc
+SOURCE_VIDEO_URL=""

@@ -32,3 +32,6 @@ files
 !.bin/**/*
 
 /tmp
+
+# Mock data config (contains credentials)
+scripts/mockdata/config.sh

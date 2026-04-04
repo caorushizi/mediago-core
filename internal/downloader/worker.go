@@ -139,7 +139,7 @@ func (d *HTTPDownloader) downloadSegment(ctx context.Context, client *http.Clien
 
 // buildClient creates an http.Client with the given options.
 func (d *HTTPDownloader) buildClient(opts Options) *http.Client {
-	transport := &http.Transport{}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
 
 	if opts.Proxy != "" {
 		proxyURL, err := url.Parse(opts.Proxy)
