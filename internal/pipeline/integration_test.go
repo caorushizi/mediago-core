@@ -429,6 +429,9 @@ func TestE2E_RustFS_HLS(t *testing.T) {
 	if !isReachable(endpoint) {
 		t.Skip("rustfs not reachable, skipping remote integration test")
 	}
+	if !urlExists(hlsURL) {
+		t.Skip("HLS test data not found on rustfs, run 'task mockdata:upload' first")
+	}
 
 	// Parse and verify the HLS structure from rustfs
 	hlsParser := &hls.Parser{}
@@ -489,6 +492,9 @@ func TestE2E_RustFS_DASH(t *testing.T) {
 	if !isReachable(endpoint) {
 		t.Skip("rustfs not reachable, skipping remote integration test")
 	}
+	if !urlExists(dashURL) {
+		t.Skip("DASH test data not found on rustfs, run 'task mockdata:upload' first")
+	}
 
 	saveDir := t.TempDir()
 	pipe := &Pipeline{
@@ -536,6 +542,17 @@ func isReachable(endpoint string) bool {
 	}
 	resp.Body.Close()
 	return true
+}
+
+// urlExists checks if a specific URL returns 200.
+func urlExists(url string) bool {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 func testEncrypt(plaintext, key, iv []byte) []byte {

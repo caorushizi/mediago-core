@@ -256,3 +256,35 @@ func TestHTTPDownloader_EmptySegmentList(t *testing.T) {
 		t.Fatalf("expected nil error for empty list, got: %v", err)
 	}
 }
+
+func TestBuildClient_WithProxy(t *testing.T) {
+	dl := &HTTPDownloader{}
+	client := dl.buildClient(Options{
+		Proxy: "http://proxy.example.com:8080",
+	})
+	if client == nil {
+		t.Fatal("expected non-nil client")
+	}
+	if client.Transport == nil {
+		t.Fatal("expected non-nil transport")
+	}
+}
+
+func TestBuildClient_WithInvalidProxy(t *testing.T) {
+	dl := &HTTPDownloader{}
+	// Invalid proxy URL — should still return a client (error ignored)
+	client := dl.buildClient(Options{
+		Proxy: "://invalid",
+	})
+	if client == nil {
+		t.Fatal("expected non-nil client even with invalid proxy")
+	}
+}
+
+func TestBuildClient_NoProxy(t *testing.T) {
+	dl := &HTTPDownloader{}
+	client := dl.buildClient(Options{})
+	if client == nil {
+		t.Fatal("expected non-nil client")
+	}
+}
