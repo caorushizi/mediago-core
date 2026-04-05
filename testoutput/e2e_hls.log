@@ -1,0 +1,13 @@
+[parse] url=/master.m3u8
+[parse] streams: 2, merge_type: 2, is_live: false
+[parse]   stream[0]: type=video bandwidth=800000 segments=3 has_init=false
+[parse]   stream[1]: type=video bandwidth=1600000 segments=3 has_init=false
+[select] auto_select: stream[0] type=video (bandwidth=1600000)
+[download] 3 segments, thread_count=1
+[download] progress: 1/3 (33.3%) speed=<SPEED>
+[download] progress: 2/3 (66.7%) speed=<SPEED>
+[download] progress: 3/3 (100.0%) speed=<SPEED>
+[download] complete: 3 segments
+[merge] type=binary, files=3
+[merge] output: golden_hls.mp4 (564 bytes)
+[cleanup] removed tmp dir

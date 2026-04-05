@@ -47,6 +47,11 @@ tasks:
     cmds:
       - bash scripts/mockdata/generate.sh --upload
 
+  test:output:
+    desc: Run golden tests and save output logs to testoutput/
+    cmds:
+      - go test ./internal/pipeline/ -run TestGolden -count=1 -v
+
   clean:
     desc: Clean build artifacts
     cmds:

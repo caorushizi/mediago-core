@@ -25,14 +25,59 @@ type Pipeline struct {
 	Downloader downloader.Downloader
 	Decryptor  *crypto.AES128Decryptor
 	Merger     merger.Merger
+	OnLog      func(format string, args ...any) // nil = silent
+}
+
+func (p *Pipeline) logf(format string, args ...any) {
+	if p.OnLog != nil {
+		p.OnLog(format, args...)
+	}
+}
+
+// formatSpeed formats bytes/sec to human-readable string.
+func formatSpeed(bytesPerSec int64) string {
+	switch {
+	case bytesPerSec >= 1024*1024:
+		return fmt.Sprintf("%.1fMB/s", float64(bytesPerSec)/(1024*1024))
+	case bytesPerSec >= 1024:
+		return fmt.Sprintf("%.1fKB/s", float64(bytesPerSec)/1024)
+	default:
+		return fmt.Sprintf("%dB/s", bytesPerSec)
+	}
+}
+
+// mediaTypeName returns a human-readable name for a MediaType.
+func mediaTypeName(mt model.MediaType) string {
+	switch mt {
+	case model.MediaVideo:
+		return "video"
+	case model.MediaAudio:
+		return "audio"
+	case model.MediaSubtitle:
+		return "subtitle"
+	default:
+		return "unknown"
+	}
 }
 
 // Run executes the full pipeline for a given task.
 func (p *Pipeline) Run(ctx context.Context, task *model.Task, onProgress func(model.ProgressEvent)) error {
 	// 1. Parse
+	p.logf("[parse] url=%s", task.URL)
 	result, err := p.Parser.Parse(ctx, task.URL, task.Headers)
 	if err != nil {
 		return fmt.Errorf("parse: %w", err)
+	}
+
+	p.logf("[parse] streams: %d, merge_type: %d, is_live: %v", len(result.Streams), result.MergeType, result.IsLive)
+	for i, s := range result.Streams {
+		segCount := 0
+		hasInit := false
+		if s.Playlist != nil {
+			segCount = len(s.Playlist.Segments)
+			hasInit = s.Playlist.MediaInit != nil
+		}
+		p.logf("[parse]   stream[%d]: type=%s bandwidth=%d segments=%d has_init=%v", i, mediaTypeName(s.MediaType), s.Bandwidth, segCount, hasInit)
 	}
 
 	// 2. Select streams
@@ -41,8 +86,15 @@ func (p *Pipeline) Run(ctx context.Context, task *model.Task, onProgress func(mo
 		return fmt.Errorf("no streams selected")
 	}
 
+	if task.AutoSelect && len(result.Streams) > 1 {
+		for i, s := range streams {
+			p.logf("[select] auto_select: stream[%d] type=%s (bandwidth=%d)", i, mediaTypeName(s.MediaType), s.Bandwidth)
+		}
+	}
+
 	// 3. Live recording mode
 	if result.IsLive || task.Live {
+		p.logf("[live] starting live recording")
 		return p.runLive(ctx, task, &streams[0], onProgress)
 	}
 
@@ -89,6 +141,7 @@ func (p *Pipeline) processStream(ctx context.Context, task *model.Task, stream *
 
 	// Download init segment if present (fMP4)
 	if playlist.MediaInit != nil {
+		p.logf("[download] init segment")
 		initSegs := []model.Segment{*playlist.MediaInit}
 		err := p.Downloader.Download(ctx, initSegs, downloader.Options{
 			TmpDir:      tmpDir,
@@ -104,6 +157,7 @@ func (p *Pipeline) processStream(ctx context.Context, task *model.Task, stream *
 	}
 
 	// Download segments
+	p.logf("[download] %d segments, thread_count=%d", len(playlist.Segments), task.ThreadCount)
 	err := p.Downloader.Download(ctx, playlist.Segments, downloader.Options{
 		TmpDir:      tmpDir,
 		Headers:     task.Headers,
@@ -111,10 +165,16 @@ func (p *Pipeline) processStream(ctx context.Context, task *model.Task, stream *
 		Timeout:     task.Timeout,
 		ThreadCount: task.ThreadCount,
 		RetryCount:  task.RetryCount,
-	}, onProgress)
+	}, func(e model.ProgressEvent) {
+		p.logf("[download] progress: %d/%d (%.1f%%) speed=%s", e.CompletedSegments, e.TotalSegments, e.Percent, formatSpeed(e.Speed))
+		if onProgress != nil {
+			onProgress(e)
+		}
+	})
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
+	p.logf("[download] complete: %d segments", len(playlist.Segments))
 
 	// Decrypt if needed
 	if err := p.decryptSegments(ctx, task, playlist, tmpDir); err != nil {
@@ -131,6 +191,7 @@ func (p *Pipeline) processStream(ctx context.Context, task *model.Task, stream *
 	// Cleanup
 	if task.DelAfterDone && !task.NoMerge {
 		os.RemoveAll(tmpDir)
+		p.logf("[cleanup] removed tmp dir")
 	}
 
 	return nil
@@ -139,6 +200,17 @@ func (p *Pipeline) processStream(ctx context.Context, task *model.Task, stream *
 func (p *Pipeline) decryptSegments(ctx context.Context, task *model.Task, playlist *model.Playlist, tmpDir string) error {
 	if p.Decryptor == nil {
 		return nil
+	}
+
+	// Count encrypted segments
+	encCount := 0
+	for _, seg := range playlist.Segments {
+		if seg.EncryptInfo != nil && seg.EncryptInfo.Method != model.EncryptNone {
+			encCount++
+		}
+	}
+	if encCount > 0 {
+		p.logf("[decrypt] %d segments, method=AES-128", encCount)
 	}
 
 	for _, seg := range playlist.Segments {
@@ -204,14 +276,19 @@ func (p *Pipeline) mergeSegments(ctx context.Context, task *model.Task, playlist
 	// Determine output extension and merger
 	var m merger.Merger
 	var ext string
+	var mergeTypeName string
 
 	if task.BinaryMerge || mergeType == model.MergeBinary {
 		m = &merger.BinaryMerger{}
 		ext = ".mp4"
+		mergeTypeName = "binary"
 	} else {
 		m = &merger.FFmpegMerger{FFmpegPath: task.FfmpegPath}
 		ext = ".mp4"
+		mergeTypeName = "ffmpeg"
 	}
+
+	p.logf("[merge] type=%s, files=%d", mergeTypeName, len(files))
 
 	saveDir := task.SaveDir
 	if saveDir == "" {
@@ -223,7 +300,16 @@ func (p *Pipeline) mergeSegments(ctx context.Context, task *model.Task, playlist
 
 	output := filepath.Join(saveDir, outputName+ext)
 
-	return m.Merge(ctx, files, output)
+	if err := m.Merge(ctx, files, output); err != nil {
+		return err
+	}
+
+	// Log output file size
+	if info, statErr := os.Stat(output); statErr == nil {
+		p.logf("[merge] output: %s (%d bytes)", outputName+ext, info.Size())
+	}
+
+	return nil
 }
 
 // runLive handles live stream recording.

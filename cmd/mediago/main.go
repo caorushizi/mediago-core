@@ -99,10 +99,18 @@ func run(task *model.Task) error {
 		p = &hls.Parser{}
 	}
 
+	var logFunc func(string, ...any)
+	if !task.NoLog {
+		logFunc = func(format string, args ...any) {
+			fmt.Fprintf(os.Stderr, format+"\n", args...)
+		}
+	}
+
 	pipe := &pipeline.Pipeline{
 		Parser:     p,
 		Downloader: &downloader.HTTPDownloader{},
 		Decryptor:  &crypto.AES128Decryptor{},
+		OnLog:      logFunc,
 	}
 
 	ctx := context.Background()

@@ -1,0 +1,42 @@
+[parse] url=/manifest.mpd
+[parse] streams: 4, merge_type: 1, is_live: false
+[parse]   stream[0]: type=video bandwidth=800000 segments=3 has_init=true
+[parse]   stream[1]: type=video bandwidth=1600000 segments=3 has_init=true
+[parse]   stream[2]: type=audio bandwidth=96000 segments=3 has_init=true
+[parse]   stream[3]: type=audio bandwidth=128000 segments=3 has_init=true
+[download] init segment
+[download] 3 segments, thread_count=1
+[download] progress: 1/3 (33.3%) speed=<SPEED>
+[download] progress: 2/3 (66.7%) speed=<SPEED>
+[download] progress: 3/3 (100.0%) speed=<SPEED>
+[download] complete: 3 segments
+[merge] type=binary, files=4
+[merge] output: golden_dash.mp4 (896 bytes)
+[cleanup] removed tmp dir
+[download] init segment
+[download] 3 segments, thread_count=1
+[download] progress: 1/3 (33.3%) speed=<SPEED>
+[download] progress: 2/3 (66.7%) speed=<SPEED>
+[download] progress: 3/3 (100.0%) speed=<SPEED>
+[download] complete: 3 segments
+[merge] type=binary, files=4
+[merge] output: golden_dash_1.mp4 (896 bytes)
+[cleanup] removed tmp dir
+[download] init segment
+[download] 3 segments, thread_count=1
+[download] progress: 1/3 (33.3%) speed=<SPEED>
+[download] progress: 2/3 (66.7%) speed=<SPEED>
+[download] progress: 3/3 (100.0%) speed=<SPEED>
+[download] complete: 3 segments
+[merge] type=binary, files=4
+[merge] output: golden_dash_audio.mp4 (896 bytes)
+[cleanup] removed tmp dir
+[download] init segment
+[download] 3 segments, thread_count=1
+[download] progress: 1/3 (33.3%) speed=<SPEED>
+[download] progress: 2/3 (66.7%) speed=<SPEED>
+[download] progress: 3/3 (100.0%) speed=<SPEED>
+[download] complete: 3 segments
+[merge] type=binary, files=4
+[merge] output: golden_dash_audio.mp4 (896 bytes)
+[cleanup] removed tmp dir
