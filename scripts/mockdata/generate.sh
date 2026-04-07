@@ -168,7 +168,7 @@ upload_to_rustfs() {
     for dir in hls dash; do
         if [[ -d "${tmp_dir}/${dir}" ]]; then
             log "Uploading ${dir}/..."
-            mc cp --recursive "${tmp_dir}/${dir}" "rustfs/${RUSTFS_BUCKET}/${dir}/"
+            mc cp --recursive "${tmp_dir}/${dir}" "rustfs/${RUSTFS_BUCKET}/"
         fi
     done
 }
